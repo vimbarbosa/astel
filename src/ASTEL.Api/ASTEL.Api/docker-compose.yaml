@@ -1,0 +1,76 @@
+version: '3.9'
+
+services:
+  # ==========================================
+  # SQL Server 2022
+  # ==========================================
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver-2022
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "stel@123"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+      - ./sql:/sql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $${SA_PASSWORD} -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # ==========================================
+  # Inicializador do Banco (executa tables.sql)
+  # ==========================================
+  sql_init:
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: sql_init
+    depends_on:
+      sqlserver:
+        condition: service_started
+    entrypoint: ["/bin/bash", "-c"]
+    command: >
+      "
+      echo '⏳ Waiting for SQL Server to start...';
+      for i in {1..60}; do
+        /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P 'stel@123' -Q 'SELECT 1' &>/dev/null && break;
+        echo '  SQL Server not ready yet... waiting ($i)';
+        sleep 2;
+      done;
+
+      echo '🚀 Running initialization script /sql/tables.sql...';
+      /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P 'stel@123' -i /sql/tables.sql && echo '✅ Initialization complete';
+
+      echo 'SQL init finished, exiting...';
+      "
+    volumes:
+      - ./sql:/sql
+    restart: "no"
+
+  # ==========================================
+  # ASTEL API (.NET 8)
+  # ==========================================
+  astel-api:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: astel-api
+    depends_on:
+      - sql_init
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__AstelDb=Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;
+      # --- Globalização habilitada ---
+      - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+      - LANG=en_US.UTF-8
+      - LC_ALL=en_US.UTF-8
+    ports:
+      - "5077:8080"
+    restart: on-failure
+
+volumes:
+  mssql_data:
