@@ -19,19 +19,33 @@ namespace ASTEL.Api.Controllers
         }
 
         [HttpGet]
-        public ActionResult<IEnumerable<DadosFinanceirosDTO>> GetAll()
+        public ActionResult<IEnumerable<DadosFinanceirosDTO>> GetAll(int pageNumber = 1, int pageSize = 10)
         {
-            var dados = _service.GetAll().Select(d => new DadosFinanceirosDTO
-            {
-                MatriculaSistel = d.MatriculaSistel,
-                MatriculaAstel = d.MatriculaAstel,
-                Ano = d.Ano,
-                Mes = d.Mes,
-                ValorPago = d.ValorPago
-            });
+            if (pageNumber <= 0 || pageSize <= 0)
+                return BadRequest("pageNumber e pageSize devem ser maiores que zero.");
+
+            var totalCount = _service.Count();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            var dados = _service.GetPaged(pageNumber, pageSize)
+                .Select(d => new DadosFinanceirosDTO
+                {
+                    MatriculaSistel = d.MatriculaSistel,
+                    MatriculaAstel = d.MatriculaAstel,
+                    Ano = d.Ano,
+                    Mes = d.Mes,
+                    ValorPago = d.ValorPago
+                })
+                .ToList();
+
+            Response.Headers.Add("X-Total-Count", totalCount.ToString());
+            Response.Headers.Add("X-Total-Pages", totalPages.ToString());
+            Response.Headers.Add("X-Current-Page", pageNumber.ToString());
+            Response.Headers.Add("X-Page-Size", pageSize.ToString());
 
             return Ok(dados);
         }
+
 
         [HttpGet("{matriculaSistel}/{matriculaAstel}/{ano}/{mes}")]
         public ActionResult<DadosFinanceirosDTO> GetById(long matriculaSistel, long matriculaAstel, int ano, double mes)

@@ -25,7 +25,8 @@ namespace ASTEL.Api.Services
             MatriculaSistel AS [Matrícula Sistel Nº],
             MatriculaAstel AS [ID Cliente],
             Ano AS [Ano],
-            Mes AS [Mês]
+            Mes AS [Mês],
+            ValorPago AS [Valor Pago]
         FROM DadosFinanceiros
         ORDER BY MatriculaSistel, Ano, Mes;
     ";
@@ -34,8 +35,8 @@ namespace ASTEL.Api.Services
             await using var reader = await command.ExecuteReaderAsync();
 
             var sb = new StringBuilder();
-            // Cabeçalho compatível com o importador
-            sb.AppendLine("Matrícula Sistel Nº;ID Cliente;Ano;Mês");
+            // Cabeçalho atualizado
+            sb.AppendLine("Matrícula Sistel Nº;ID Cliente;Ano;Mês;Valor Pago (R$)");
 
             while (await reader.ReadAsync())
             {
@@ -43,14 +44,17 @@ namespace ASTEL.Api.Services
                 long matriculaAstel = reader.GetInt64(1);
                 int ano = reader.GetInt32(2);
                 double mes = reader.GetDouble(3);
+                string valorPago = reader.IsDBNull(4)
+                    ? ""
+                    : reader.GetDouble(4).ToString("F2", CultureInfo.InvariantCulture);
 
-                sb.AppendLine($"{matriculaSistel};{matriculaAstel};{ano};{mes.ToString(CultureInfo.InvariantCulture)}");
+                sb.AppendLine($"{matriculaSistel};{matriculaAstel};{ano};{mes.ToString(CultureInfo.InvariantCulture)};{valorPago}");
             }
 
-            // Gera arquivo em memória com BOM UTF-8
             var utf8WithBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
             return utf8WithBom.GetBytes(sb.ToString());
         }
+
 
 
         public async Task<string> ImportCsvAsync(IFormFile file)
@@ -154,10 +158,12 @@ namespace ASTEL.Api.Services
                 new DataColumn("MatriculaSistel", typeof(long)),
                 new DataColumn("MatriculaAstel", typeof(long)),
                 new DataColumn("Ano", typeof(int)),
-                new DataColumn("Mes", typeof(double))
+                new DataColumn("Mes", typeof(double)),
+                new DataColumn("ValorPago", typeof(double))
             });
             return table;
         }
+
 
         private async Task InserirOuAtualizarEmLoteAsync(DataTable dataTable)
         {
@@ -165,14 +171,15 @@ namespace ASTEL.Api.Services
             await connection.OpenAsync();
 
             var createTempTable = @"
-                IF OBJECT_ID('tempdb..#TempDadosFinanceiros') IS NOT NULL DROP TABLE #TempDadosFinanceiros;
-                CREATE TABLE #TempDadosFinanceiros (
-                    MatriculaSistel BIGINT,
-                    MatriculaAstel BIGINT,
-                    Ano INT,
-                    Mes FLOAT
-                );
-            ";
+        IF OBJECT_ID('tempdb..#TempDadosFinanceiros') IS NOT NULL DROP TABLE #TempDadosFinanceiros;
+        CREATE TABLE #TempDadosFinanceiros (
+            MatriculaSistel BIGINT,
+            MatriculaAstel BIGINT,
+            Ano INT,
+            Mes FLOAT,
+            ValorPago FLOAT
+        );
+    ";
             await using (var createCmd = new SqlCommand(createTempTable, connection))
                 await createCmd.ExecuteNonQueryAsync();
 
@@ -189,21 +196,24 @@ namespace ASTEL.Api.Services
             }
 
             var mergeSql = @"
-                MERGE INTO DadosFinanceiros AS Target
-                USING #TempDadosFinanceiros AS Source
-                ON Target.MatriculaSistel = Source.MatriculaSistel
-                   AND Target.MatriculaAstel = Source.MatriculaAstel
-                   AND Target.Ano = Source.Ano
-                WHEN MATCHED THEN
-                    UPDATE SET Target.Mes = Source.Mes
-                WHEN NOT MATCHED BY TARGET THEN
-                    INSERT (MatriculaSistel, MatriculaAstel, Ano, Mes)
-                    VALUES (Source.MatriculaSistel, Source.MatriculaAstel, Source.Ano, Source.Mes);
-            ";
+                    MERGE INTO DadosFinanceiros AS Target
+                    USING #TempDadosFinanceiros AS Source
+                    ON Target.MatriculaSistel = Source.MatriculaSistel
+                       AND Target.MatriculaAstel = Source.MatriculaAstel
+                       AND Target.Ano = Source.Ano
+                    WHEN MATCHED THEN
+                        UPDATE SET 
+                            Target.Mes = Source.Mes,
+                            Target.ValorPago = Source.ValorPago
+                    WHEN NOT MATCHED BY TARGET THEN
+                        INSERT (MatriculaSistel, MatriculaAstel, Ano, Mes, ValorPago)
+                        VALUES (Source.MatriculaSistel, Source.MatriculaAstel, Source.Ano, Source.Mes, Source.ValorPago);
+    ";
 
             await using (var mergeCmd = new SqlCommand(mergeSql, connection))
                 await mergeCmd.ExecuteNonQueryAsync();
         }
+
 
         private DataRow? PreencherDataRow(DataTable table, Dictionary<string, int> headers, string[] cols)
         {
@@ -220,7 +230,6 @@ namespace ASTEL.Api.Services
                     return index < cols.Length ? cols[index].Trim() : null;
                 }
 
-                // Normaliza campos e converte tipos
                 string? matriculaSistelTexto = NormalizeScientificNotation(Get("matrícula sistel nº"));
                 string? matriculaAstelTexto = NormalizeScientificNotation(Get("id cliente"));
 
@@ -228,11 +237,13 @@ namespace ASTEL.Api.Services
                 long matriculaAstel = ParseLong(matriculaAstelTexto);
                 int ano = ParseInt(Get("ano"));
                 double mes = ParseDouble(Get("mês") ?? Get("mes"));
+                double valorPago = ParseDouble(Get("valor pago") ?? Get("valor pago (r$)"));
 
                 row["MatriculaSistel"] = matriculaSistel;
                 row["MatriculaAstel"] = matriculaAstel;
                 row["Ano"] = ano;
                 row["Mes"] = mes;
+                row["ValorPago"] = valorPago;
 
                 return row;
             }
@@ -243,6 +254,7 @@ namespace ASTEL.Api.Services
                 return null;
             }
         }
+
 
         private static Encoding DetectEncoding(IFormFile file)
         {

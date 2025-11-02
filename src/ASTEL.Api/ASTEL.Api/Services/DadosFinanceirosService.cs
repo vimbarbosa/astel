@@ -24,6 +24,25 @@ namespace ASTEL.Api.Services
                 .ToList();
         }
 
+        // 🔹 Retorna registros com paginação
+        public List<DadosFinanceiros> GetPaged(int pageNumber, int pageSize)
+        {
+            return _context.DadosFinanceiros
+                .AsNoTracking()
+                .OrderBy(df => df.MatriculaSistel)
+                .ThenBy(df => df.Ano)
+                .ThenBy(df => df.Mes)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+        }
+
+        // 🔹 Retorna a contagem total de registros
+        public int Count()
+        {
+            return _context.DadosFinanceiros.Count();
+        }
+
         // 🔹 Busca um registro específico
         public DadosFinanceiros? GetById(long matriculaSistel, long matriculaAstel, int ano, double mes)
         {

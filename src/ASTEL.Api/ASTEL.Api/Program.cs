@@ -10,11 +10,16 @@ var builder = WebApplication.CreateBuilder(args);
 // CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend",
-        policy => policy.WithOrigins("http://localhost:5173")
-                        .AllowAnyHeader()
-                        .AllowAnyMethod());
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .WithExposedHeaders("X-Total-Count", "X-Total-Pages", "X-Current-Page", "X-Page-Size");
+    });
 });
+
 
 // Controllers + FluentValidation
 builder.Services.AddControllers()
