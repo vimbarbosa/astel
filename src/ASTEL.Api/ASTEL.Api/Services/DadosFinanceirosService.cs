@@ -27,7 +27,8 @@ GetFilteredAsync(DateTime? inicio, DateTime? fim, string? nome, string? cpf,
                  long? matriculaAstel, bool? inadimplente,
                  int pageNumber, int pageSize)
         {
-            string connStr = "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+            //string connStr = "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+            string connStr = "Server=sqlserver-2022,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;\r\n";
 
             // ------------------------- CTE -------------------------
             var cte = @"
