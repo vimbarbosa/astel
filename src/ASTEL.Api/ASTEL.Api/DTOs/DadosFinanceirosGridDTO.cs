@@ -1,15 +1,9 @@
-﻿public class DadosFinanceirosDTO
+﻿public class DadosFinanceirosGridDTO
 {
-    // Financeiro
-    public string? Id { get; set; }   // ← agora aceita null
-    public int? Ano { get; set; }
-    public int? Mes { get; set; }     // Mes deve ser int, não double
-    public double? ValorPago { get; set; }
-
-    // Cadastro
+    public long Id { get; set; }
     public long IdDadosCadastrais { get; set; }
     public long? MatriculaSistel { get; set; }
-    public long? MatriculaAstel { get; set; }
+    public long MatriculaAstel { get; set; }
     public string Nome { get; set; }
     public string CPF { get; set; }
     public string RG { get; set; }
@@ -17,8 +11,9 @@
     public string EstadoCivil { get; set; }
     public string Telefone { get; set; }
     public string Situacao { get; set; }
-    public bool? Ativo { get; set; }
-
-    // Flag
+    public bool Ativo { get; set; }
+    public int? Ano { get; set; }
+    public int? Mes { get; set; }
+    public double? ValorPago { get; set; }
     public bool Inadimplente { get; set; }
 }

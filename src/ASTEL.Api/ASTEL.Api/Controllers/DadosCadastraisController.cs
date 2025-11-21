@@ -2,8 +2,6 @@
 using ASTEL.Api.Models;
 using ASTEL.Api.Services;
 using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace ASTEL.Api.Controllers
 {
@@ -18,70 +16,88 @@ namespace ASTEL.Api.Controllers
             _service = service;
         }
 
-        /// <summary>
-        /// Retorna todos os registros de dados cadastrais.
-        /// </summary>
         [HttpGet]
-        public ActionResult<IEnumerable<DadosCadastraisDTO>> GetAll()
+        public async Task<ActionResult<IEnumerable<DadosCadastraisDTO>>> GetAll(
+            string? nome = null,
+            string? cpf = null,
+            long? matriculaAstel = null,
+            int pageNumber = 1,
+            int pageSize = 10)
         {
-            var dados = _service.GetAll()
-                .Select(d => new DadosCadastraisDTO
-                {
-                    MatriculaSistel = d.MatriculaSistel,
-                    MatriculaAstel = d.MatriculaAstel,
-                    Nome = d.Nome,
-                    Endereco = d.Endereco,
-                    Situacao = d.Situacao,
-                    ValorBeneficio = (float?)d.ValorBeneficio,
-                    EstadoCivil = d.EstadoCivil,
-                    Telefone = d.Telefone,
-                    NomeEsposa = d.NomeEsposa,
-                    CPF = d.CPF,
-                    RG = d.RG,
-                    Ativo = d.Ativo,
-                    DescontoFolha = d.DescontoFolha
-                })
-                .ToList();
+            if (pageNumber <= 0 || pageSize <= 0)
+                return BadRequest("pageNumber e pageSize devem ser maiores que zero.");
 
-            return Ok(dados);
+            var (dados, totalCount) = await _service.GetPagedFilteredAsync(
+                nome,
+                cpf,
+                matriculaAstel,
+                pageNumber,
+                pageSize
+            );
+
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            var dtos = dados.Select(d => new DadosCadastraisDTO
+            {
+                Id = d.Id,
+                MatriculaSistel = d.MatriculaSistel,
+                MatriculaAstel = d.MatriculaAstel,
+                Nome = d.Nome,
+                Endereco = d.Endereco,
+                Situacao = d.Situacao,
+                ValorBeneficio = d.ValorBeneficio,
+                EstadoCivil = d.EstadoCivil,
+                Telefone = d.Telefone,
+                NomeEsposa = d.NomeEsposa,
+                CPF = d.CPF,
+                RG = d.RG,
+                Ativo = d.Ativo,
+                DescontoFolha = d.DescontoFolha
+            });
+
+            Response.Headers["X-Total-Count"] = totalCount.ToString();
+            Response.Headers["X-Total-Pages"] = totalPages.ToString();
+            Response.Headers["X-Current-Page"] = pageNumber.ToString();
+            Response.Headers["X-Page-Size"] = pageSize.ToString();
+
+            return Ok(dtos);
         }
 
-        /// <summary>
-        /// Retorna um registro específico pela matrícula Sistel.
-        /// </summary>
-        [HttpGet("{matriculaSistel:long}")]
-        public ActionResult<DadosCadastraisDTO> GetByMatriculaSistel(long matriculaSistel)
+
+        [HttpGet("{id:long}")]
+        public async Task<ActionResult<DadosCadastraisDTO>> GetById(long id)
         {
-            var dados = _service.GetById(matriculaSistel);
-            if (dados == null)
+            var d = await _service.GetByIdAsync(id);
+            if (d == null)
                 return NotFound();
 
             var dto = new DadosCadastraisDTO
             {
-                MatriculaSistel = dados.MatriculaSistel,
-                MatriculaAstel = dados.MatriculaAstel,
-                Nome = dados.Nome,
-                Endereco = dados.Endereco,
-                Situacao = dados.Situacao,
-                ValorBeneficio = (float?)dados.ValorBeneficio,
-                EstadoCivil = dados.EstadoCivil,
-                Telefone = dados.Telefone,
-                NomeEsposa = dados.NomeEsposa,
-                CPF = dados.CPF,
-                RG = dados.RG,
-                Ativo = dados.Ativo,
-                DescontoFolha = dados.DescontoFolha
+                Id = d.Id,
+                MatriculaSistel = d.MatriculaSistel,
+                MatriculaAstel = d.MatriculaAstel,
+                Nome = d.Nome,
+                Endereco = d.Endereco,
+                Situacao = d.Situacao,
+                ValorBeneficio = d.ValorBeneficio,
+                EstadoCivil = d.EstadoCivil,
+                Telefone = d.Telefone,
+                NomeEsposa = d.NomeEsposa,
+                CPF = d.CPF,
+                RG = d.RG,
+                Ativo = d.Ativo,
+                DescontoFolha = d.DescontoFolha
             };
 
             return Ok(dto);
         }
 
         [HttpPost]
-        public ActionResult<DadosCadastraisDTO> Create([FromBody] DadosCadastraisDTO dto)
+        public async Task<ActionResult<DadosCadastraisDTO>> Create([FromBody] DadosCadastraisDTO dto)
         {
-            // A validação FluentValidation roda automaticamente antes dessa linha
             var model = new DadosCadastrais
             {
+                Id = dto.MatriculaAstel.Value,
                 MatriculaSistel = dto.MatriculaSistel,
                 MatriculaAstel = dto.MatriculaAstel,
                 Nome = dto.Nome,
@@ -97,34 +113,25 @@ namespace ASTEL.Api.Controllers
                 DescontoFolha = dto.DescontoFolha
             };
 
-            _service.Add(model);
+            await _service.AddAsync(model);
 
-            return CreatedAtAction(nameof(GetByMatriculaSistel), new { matriculaSistel = model.MatriculaSistel }, dto);
+            dto.Id = model.Id;
+
+            return CreatedAtAction(nameof(GetById), new { id = model.Id }, dto);
         }
 
-
-        /// <summary>
-        /// Atualiza um registro existente.
-        /// </summary>
-        [HttpPut("{matriculaSistel:long}")]
-        public IActionResult Update(long matriculaSistel, [FromBody] DadosCadastraisDTO dto)
+        [HttpPut("{id:long}")]
+        public async Task<IActionResult> Update(long id, [FromBody] DadosCadastraisDTO dto)
         {
-            // Verifica se o corpo é nulo ou a rota não corresponde ao DTO
-            if (dto == null || matriculaSistel != dto.MatriculaSistel)
-                return BadRequest(new
-                {
-                    errors = new
-                    {
-                        MatriculaSistel = new[] { "Matrícula Sistel divergente ou dados inválidos." }
-                    }
-                });
+            if (dto.Id != id)
+                return BadRequest("ID do corpo difere do ID da rota.");
 
-            // Caso o registro não exista
-            var existente = _service.GetById(matriculaSistel);
+            var existente = await _service.GetByIdAsync(id);
             if (existente == null)
-                return NotFound(new { message = $"Registro com matrícula {matriculaSistel} não encontrado." });
+                return NotFound();
 
-            // Se chegou aqui, o FluentValidation já garantiu que dto está válido.
+            existente.Id = dto.Id;
+            existente.MatriculaSistel = dto.MatriculaSistel;
             existente.MatriculaAstel = dto.MatriculaAstel;
             existente.Nome = dto.Nome;
             existente.Endereco = dto.Endereco;
@@ -138,23 +145,17 @@ namespace ASTEL.Api.Controllers
             existente.Ativo = dto.Ativo;
             existente.DescontoFolha = dto.DescontoFolha;
 
-            _service.Update(existente);
-
+            await _service.UpdateAsync(existente);
             return Ok(new { message = "Registro atualizado com sucesso!" });
         }
 
-
-        /// <summary>
-        /// Exclui um registro de dados cadastrais.
-        /// </summary>
-        [HttpDelete("{matriculaSistel:long}")]
-        public IActionResult Delete(long matriculaSistel)
+        [HttpDelete("{id:long}")]
+        public async Task<IActionResult> Delete(long id)
         {
-            var existente = _service.GetById(matriculaSistel);
-            if (existente == null)
+            var ok = await _service.DeleteAsync(id);
+            if (!ok)
                 return NotFound();
 
-            _service.Delete(matriculaSistel);
             return NoContent();
         }
     }

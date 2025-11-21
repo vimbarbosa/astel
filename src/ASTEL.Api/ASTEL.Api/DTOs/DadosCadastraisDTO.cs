@@ -2,12 +2,15 @@
 {
     public class DadosCadastraisDTO
     {
-        public long MatriculaSistel { get; set; }
-        public long MatriculaAstel { get; set; }
+        public long Id { get; set; }
+
+        public long? MatriculaSistel { get; set; }
+        public long? MatriculaAstel { get; set; }
+
         public string Nome { get; set; }
         public string Endereco { get; set; }
-        public int? Situacao { get; set; }
-        public float? ValorBeneficio { get; set; }
+        public string? Situacao { get; set; }
+        public double? ValorBeneficio { get; set; }
         public string EstadoCivil { get; set; }
         public string Telefone { get; set; }
         public string NomeEsposa { get; set; }

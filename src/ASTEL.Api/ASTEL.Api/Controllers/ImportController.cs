@@ -7,20 +7,11 @@ namespace ASTEL.Api.Controllers
     [Route("api/[controller]")]
     public class ImportController : ControllerBase
     {
-        private readonly ImportService _importService;
         private readonly ImportFinanceiroService _financeiroService;
 
-        public ImportController(ImportService importService, ImportFinanceiroService financeiroService)
+        public ImportController(ImportFinanceiroService financeiroService)
         {
-            _importService = importService;
             _financeiroService = financeiroService;
-        }
-
-        [HttpPost("import")]
-        public async Task<IActionResult> ImportCsvAsync(IFormFile file)
-        {
-            var result = await _importService.ImportCsvAsync(file);
-            return Ok(result);
         }
 
         [HttpPost("importFinanceiro")]

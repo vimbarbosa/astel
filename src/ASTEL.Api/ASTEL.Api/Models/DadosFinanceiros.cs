@@ -1,23 +1,29 @@
-﻿using ASTEL.Api.Models;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-public class DadosFinanceiros
+namespace ASTEL.Api.Models
 {
-    [Column("MatriculaSistel")]
-    public long MatriculaSistel { get; set; }
+    [Table("DadosFinanceiros")]
+    public class DadosFinanceiros
+    {
+        [Key]
+        [Column("Id")]
+        public long Id { get; set; }
 
-    [Column("MatriculaAstel")]
-    public long MatriculaAstel { get; set; }
+        [Required]
+        [Column("IdDadosCadastrais")]
+        public long IdDadosCadastrais { get; set; }
 
-    [Column("Ano")]
-    public int Ano { get; set; }
+        [Column("Ano")]
+        public int? Ano { get; set; }
 
-    [Column("Mes")]
-    public double? Mes { get; set; }
+        [Column("Mes")]
+        public double? Mes { get; set; }
 
-    [Column("ValorPago")]
-    public double? ValorPago { get; set; } // 🔹 Novo campo
+        [Column("ValorPago")]
+        public double? ValorPago { get; set; }
 
-    [ForeignKey("MatriculaSistel")]
-    public DadosCadastrais DadosCadastrais { get; set; }
+        [ForeignKey("IdDadosCadastrais")]
+        public DadosCadastrais? DadosCadastrais { get; set; }
+    }
 }

@@ -1,5 +1,6 @@
 ﻿using ASTEL.Api.Data;
 using ASTEL.Api.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace ASTEL.Api.Services
 {
@@ -12,36 +13,94 @@ namespace ASTEL.Api.Services
             _context = context;
         }
 
-        public List<DadosCadastrais> GetAll()
+        // PAGINAÇÃO
+        public async Task<List<DadosCadastrais>> GetPagedAsync(int pageNumber, int pageSize)
         {
-            return _context.DadosCadastrais.ToList();
+            return await _context.DadosCadastrais
+                .AsNoTracking()
+                .OrderBy(x => x.Id)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
         }
 
-        public DadosCadastrais GetById(long id)
+        public async Task<(List<DadosCadastrais> registros, int totalCount)>
+    GetPagedFilteredAsync(
+        string? nome,
+        string? cpf,
+        long? matriculaAstel,
+        int pageNumber,
+        int pageSize)
         {
-            return _context.DadosCadastrais.Find(id);
+            var query = _context.DadosCadastrais.AsNoTracking().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(nome))
+                query = query.Where(x => x.Nome.Contains(nome));
+
+            if (!string.IsNullOrWhiteSpace(cpf))
+                query = query.Where(x => x.CPF.Contains(cpf));
+
+            if (matriculaAstel.HasValue)
+                query = query.Where(x => x.MatriculaAstel == matriculaAstel.Value);
+
+            var totalCount = await query.CountAsync();
+
+            var registros = await query
+                .OrderBy(x => x.Nome)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (registros, totalCount);
         }
 
-        public void Add(DadosCadastrais dados)
+
+        public async Task<int> CountAsync()
+        {
+            return await _context.DadosCadastrais.CountAsync();
+        }
+
+        // GET ALL (SEM PAGINAÇÃO – usado internamente)
+        public async Task<List<DadosCadastrais>> GetAllAsync()
+        {
+            return await _context.DadosCadastrais
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        // GET BY ID
+        public async Task<DadosCadastrais?> GetByIdAsync(long id)
+        {
+            return await _context.DadosCadastrais
+                .AsNoTracking()
+                .Include(x => x.DadosFinanceiros)
+                .FirstOrDefaultAsync(x => x.Id == id);
+        }
+
+        // CREATE
+        public async Task AddAsync(DadosCadastrais dados)
         {
             _context.DadosCadastrais.Add(dados);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
         }
 
-        public void Update(DadosCadastrais dados)
+        // UPDATE
+        public async Task UpdateAsync(DadosCadastrais dados)
         {
             _context.DadosCadastrais.Update(dados);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
         }
 
-        public void Delete(long id)
+        // DELETE
+        public async Task<bool> DeleteAsync(long id)
         {
-            var dados = _context.DadosCadastrais.Find(id);
-            if (dados != null)
-            {
-                _context.DadosCadastrais.Remove(dados);
-                _context.SaveChanges();
-            }
+            var dados = await _context.DadosCadastrais.FirstOrDefaultAsync(x => x.Id == id);
+            if (dados == null)
+                return false;
+
+            _context.DadosCadastrais.Remove(dados);
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }

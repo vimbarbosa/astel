@@ -2,8 +2,8 @@
 using ASTEL.Api.Models;
 using ASTEL.Api.Services;
 using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
-using System.Linq;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 
 namespace ASTEL.Api.Controllers
 {
@@ -18,115 +18,95 @@ namespace ASTEL.Api.Controllers
             _service = service;
         }
 
-        [HttpGet]
-        public ActionResult<IEnumerable<DadosFinanceirosDTO>> GetAll(int pageNumber = 1, int pageSize = 10)
+        [HttpGet("filtrar")]
+        public async Task<ActionResult<IEnumerable<DadosFinanceirosDTO>>> Filtrar(
+             DateTime? dataInicio = null,
+             DateTime? dataFim = null,
+             string? nome = null,
+             string? cpf = null,
+             long? matriculaAstel = null,
+             bool? inadimplente = null,
+             int pageNumber = 1,
+             int pageSize = 10)
         {
-            if (pageNumber <= 0 || pageSize <= 0)
-                return BadRequest("pageNumber e pageSize devem ser maiores que zero.");
+               var (dados, totalCount) = await _service.GetFilteredAsync(
+                dataInicio, dataFim, nome, cpf, matriculaAstel, inadimplente,
+                pageNumber, pageSize);
 
-            var totalCount = _service.Count();
-            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+            int totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
-            var dados = _service.GetPaged(pageNumber, pageSize)
-                .Select(d => new DadosFinanceirosDTO
-                {
-                    MatriculaSistel = d.MatriculaSistel,
-                    MatriculaAstel = d.MatriculaAstel,
-                    Ano = d.Ano,
-                    Mes = d.Mes,
-                    ValorPago = d.ValorPago
-                })
-                .ToList();
-
-            Response.Headers.Add("X-Total-Count", totalCount.ToString());
-            Response.Headers.Add("X-Total-Pages", totalPages.ToString());
-            Response.Headers.Add("X-Current-Page", pageNumber.ToString());
-            Response.Headers.Add("X-Page-Size", pageSize.ToString());
+            Response.Headers["X-Total-Count"] = totalCount.ToString();
+            Response.Headers["X-Page-Number"] = pageNumber.ToString();
+            Response.Headers["X-Page-Size"] = pageSize.ToString();
+            Response.Headers["X-Total-Pages"] = totalPages.ToString();
 
             return Ok(dados);
         }
 
 
-        [HttpGet("{matriculaSistel}/{matriculaAstel}/{ano}/{mes}")]
-        public ActionResult<DadosFinanceirosDTO> GetById(long matriculaSistel, long matriculaAstel, int ano, double mes)
+
+        // ------------------------------------------------------------
+        // CRUD POR ID
+        // ------------------------------------------------------------
+        [HttpGet("{id}")]
+        public ActionResult<DadosFinanceirosDTO> GetById(long id)
         {
-            var dados = _service.GetById(matriculaSistel, matriculaAstel, ano, mes);
-            if (dados == null)
+            var fin = _service.GetById(id);
+            if (fin == null)
                 return NotFound();
 
-            var dto = new DadosFinanceirosDTO
-            {
-                MatriculaSistel = dados.MatriculaSistel,
-                MatriculaAstel = dados.MatriculaAstel,
-                Ano = dados.Ano,
-                Mes = dados.Mes,
-                ValorPago = dados.ValorPago
-            };
-
-            return Ok(dto);
+            return Ok(fin);
         }
 
         [HttpPost]
-        public ActionResult<DadosFinanceirosDTO> Create([FromBody] DadosFinanceirosDTO dto)
+        public IActionResult Create([FromBody] DadosFinanceiros df)
         {
             try
             {
-                var dados = new DadosFinanceiros
-                {
-                    MatriculaSistel = dto.MatriculaSistel,
-                    MatriculaAstel = dto.MatriculaAstel,
-                    Ano = dto.Ano,
-                    Mes = dto.Mes,
-                    ValorPago = dto.ValorPago
-                };
+                // Normaliza mês e ano
+                df.Mes = Convert.ToInt32(df.Mes);
+                df.Ano = Convert.ToInt32(df.Ano);
 
-                _service.Add(dados);
+                _service.Add(df);
 
-                return CreatedAtAction(nameof(GetById),
-                    new
-                    {
-                        matriculaSistel = dados.MatriculaSistel,
-                        matriculaAstel = dados.MatriculaAstel,
-                        ano = dados.Ano,
-                        mes = dados.Mes
-                    },
-                    dto);
+                return Ok(new { message = "Pagamento cadastrado com sucesso!" });
             }
-            catch (InvalidOperationException ex)
+            catch (DbUpdateException ex)
             {
-                return BadRequest(new
+                // SqlException 2627 = Duplicate PK
+                if (ex.InnerException is SqlException sqlEx && sqlEx.Number == 2627)
                 {
-                    errors = new
+                    return Conflict(new
                     {
-                        MatriculaSistel = new[] { ex.Message }
-                    }
+                        message = "Já existe um pagamento cadastrado para esta matrícula neste mês/ano."
+                    });
+                }
+
+                return StatusCode(500, new
+                {
+                    message = "Erro ao salvar os dados financeiros.",
+                    detail = ex.InnerException?.Message ?? ex.Message
                 });
             }
         }
 
-        [HttpDelete("{matriculaSistel}/{matriculaAstel}/{ano}/{mes}")]
-        public IActionResult Delete(long matriculaSistel, long matriculaAstel, int ano, double mes)
-        {
-            var dados = _service.GetById(matriculaSistel, matriculaAstel, ano, mes);
-            if (dados == null)
-                return NotFound();
 
-            _service.Delete(matriculaSistel, matriculaAstel, ano, mes);
+
+        [HttpPut("{id}")]
+        public IActionResult Update(long id, [FromBody] DadosFinanceiros df)
+        {
+            df.Id = id;
+            _service.Update(df);
             return NoContent();
         }
 
-        [HttpGet("export")]
-        public async Task<IActionResult> ExportCsv([FromServices] ImportFinanceiroService importService)
+        [HttpDelete("{id}")]
+        public IActionResult Delete(long id)
         {
-            var bytes = await importService.ExportCsvAsync();
-            return File(bytes, "text/csv", "dados_financeiros_export.csv");
-        }
+            if (!_service.Delete(id))
+                return NotFound();
 
-        [HttpGet("export-cadastrais")]
-        public async Task<IActionResult> ExportCadastraisCsv([FromServices] ImportFinanceiroService importService)
-        {
-            var bytes = await importService.ExportCadastraisCsvAsync();
-            return File(bytes, "text/csv", "dados_cadastrais_export.csv");
+            return NoContent();
         }
     }
 }

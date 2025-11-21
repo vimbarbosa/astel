@@ -9,18 +9,25 @@ namespace ASTEL.Api.Data
         {
         }
 
+        public DbSet<DadosFinanceirosGridDTO> DadosFinanceirosGridDTO { get; set; }
         public DbSet<DadosCadastrais> DadosCadastrais { get; set; }
         public DbSet<DadosFinanceiros> DadosFinanceiros { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<DadosCadastrais>()
+                .HasKey(dc => dc.Id);
+
             modelBuilder.Entity<DadosFinanceiros>()
-                .HasKey(df => new { df.MatriculaSistel, df.MatriculaAstel, df.Ano, df.Mes });
+                .HasKey(df => df.Id);
 
             modelBuilder.Entity<DadosFinanceiros>()
                 .HasOne(df => df.DadosCadastrais)
                 .WithMany(dc => dc.DadosFinanceiros)
-                .HasForeignKey(df => df.MatriculaSistel);
+                .HasForeignKey(df => df.IdDadosCadastrais)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            modelBuilder.Entity<DadosFinanceirosGridDTO>().HasNoKey();
 
             base.OnModelCreating(modelBuilder);
         }

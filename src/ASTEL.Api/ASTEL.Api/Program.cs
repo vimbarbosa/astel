@@ -54,7 +54,6 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Serviços
 builder.Services.AddScoped<DadosCadastraisService>();
 builder.Services.AddScoped<DadosFinanceirosService>();
-builder.Services.AddScoped<ImportService>();
 builder.Services.AddScoped<ImportFinanceiroService>();
 
 // Swagger
