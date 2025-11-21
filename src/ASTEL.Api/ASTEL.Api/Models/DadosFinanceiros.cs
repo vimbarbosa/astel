@@ -18,7 +18,7 @@ namespace ASTEL.Api.Models
         public int? Ano { get; set; }
 
         [Column("Mes")]
-        public double? Mes { get; set; }
+        public int? Mes { get; set; }
 
         [Column("ValorPago")]
         public double? ValorPago { get; set; }
