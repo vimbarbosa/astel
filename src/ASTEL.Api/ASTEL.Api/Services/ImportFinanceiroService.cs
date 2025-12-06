@@ -15,7 +15,7 @@ namespace ASTEL.Api.Services
             //    ?? "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
 
             _connectionString = configuration.GetConnectionString("DefaultConnection")
-                ?? "Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+                ?? "Server=sqlserver-2022,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
         }
 
         public async Task<byte[]> ExportCsvAsync()
