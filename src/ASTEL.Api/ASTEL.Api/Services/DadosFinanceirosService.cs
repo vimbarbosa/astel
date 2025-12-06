@@ -29,7 +29,7 @@ GetFilteredAsync(DateTime? inicio, DateTime? fim, string? nome, string? cpf,
                  string? cidade, string? estado, string? email, string? telefone,
                  int pageNumber, int pageSize)
         {
-            string connStr = "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+            string connStr = "Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
             //string connStr = "Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;\r\n";
 
             // ------------------------- CTE -------------------------
