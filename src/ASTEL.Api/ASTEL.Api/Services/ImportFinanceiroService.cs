@@ -11,8 +11,11 @@ namespace ASTEL.Api.Services
 
         public ImportFinanceiroService(IConfiguration configuration)
         {
+            //_connectionString = configuration.GetConnectionString("DefaultConnection")
+            //    ?? "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+
             _connectionString = configuration.GetConnectionString("DefaultConnection")
-                ?? "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+                ?? "Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
         }
 
         public async Task<byte[]> ExportCsvAsync()
