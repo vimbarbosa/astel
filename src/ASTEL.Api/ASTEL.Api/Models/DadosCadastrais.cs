@@ -58,7 +58,57 @@ namespace ASTEL.Api.Models
         [Column("DescontoFolha")]
         public bool? DescontoFolha { get; set; }
 
-        public ICollection<DadosFinanceiros> DadosFinanceiros { get; set; }
-            = new List<DadosFinanceiros>();
+        //
+        // 🔥 RELACIONAMENTO 1:N — REINSERIDO
+        //
+        public List<DadosFinanceiros>? DadosFinanceiros { get; set; }
+
+        //
+        // 🔥 NOVOS CAMPOS — PADRÃO MANTIDO
+        //
+
+        [Column("Logradouro")]
+        [MaxLength(500)]
+        public string? Logradouro { get; set; }
+
+        [Column("CelSkype")]
+        [MaxLength(50)]
+        public string? CelSkype { get; set; }
+
+        [Column("Estado")]
+        [MaxLength(50)]
+        public string? Estado { get; set; }
+
+        [Column("Cidade")]
+        [MaxLength(50)]
+        public string? Cidade { get; set; }
+
+        [Column("TipoEndereco")]
+        [MaxLength(50)]
+        public string? TipoEndereco { get; set; }
+
+        [Column("Correspondencia")]
+        [MaxLength(100)]
+        public string? Correspondencia { get; set; }
+
+        [Column("Numero")]
+        [MaxLength(50)]
+        public string? Numero { get; set; }
+
+        [Column("Complemento")]
+        [MaxLength(50)]
+        public string? Complemento { get; set; }
+
+        [Column("Bairro")]
+        [MaxLength(50)]
+        public string? Bairro { get; set; }
+
+        [Column("Email")]
+        [MaxLength(50)]
+        public string? Email { get; set; }
+
+        [Column("CEP")]
+        [MaxLength(50)]
+        public string? CEP { get; set; }
     }
 }

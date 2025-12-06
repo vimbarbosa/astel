@@ -26,11 +26,16 @@ namespace ASTEL.Api.Controllers
              string? cpf = null,
              long? matriculaAstel = null,
              bool? inadimplente = null,
+             string? cidade = null,
+             string? estado = null,
+             string? email = null,
+             string? telefone = null,
              int pageNumber = 1,
              int pageSize = 10)
         {
-               var (dados, totalCount) = await _service.GetFilteredAsync(
+            var (dados, totalCount) = await _service.GetFilteredAsync(
                 dataInicio, dataFim, nome, cpf, matriculaAstel, inadimplente,
+                cidade, estado, email, telefone,
                 pageNumber, pageSize);
 
             int totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
@@ -43,12 +48,7 @@ namespace ASTEL.Api.Controllers
             return Ok(dados);
         }
 
-
-
-        // ------------------------------------------------------------
-        // CRUD POR ID
-        // ------------------------------------------------------------
-        [HttpGet("{id}")]
+        [HttpGet("{id:long}")]
         public ActionResult<DadosFinanceirosDTO> GetById(long id)
         {
             var fin = _service.GetById(id);
@@ -63,7 +63,6 @@ namespace ASTEL.Api.Controllers
         {
             try
             {
-                // Normaliza mês e ano
                 df.Mes = Convert.ToInt32(df.Mes);
                 df.Ano = Convert.ToInt32(df.Ano);
 
@@ -73,7 +72,6 @@ namespace ASTEL.Api.Controllers
             }
             catch (DbUpdateException ex)
             {
-                // SqlException 2627 = Duplicate PK
                 if (ex.InnerException is SqlException sqlEx && sqlEx.Number == 2627)
                 {
                     return Conflict(new
@@ -89,8 +87,6 @@ namespace ASTEL.Api.Controllers
                 });
             }
         }
-
-
 
         [HttpPut("{id}")]
         public IActionResult Update(long id, [FromBody] DadosFinanceiros df)
@@ -108,5 +104,35 @@ namespace ASTEL.Api.Controllers
 
             return NoContent();
         }
+
+
+        [HttpGet("export/excel/xlsx")]
+        public async Task<IActionResult> ExportarExcel(
+    DateTime? dataInicio = null,
+    DateTime? dataFim = null,
+    string? nome = null,
+    string? cpf = null,
+    long? matriculaAstel = null,
+    bool? inadimplente = null,
+    string? cidade = null,
+    string? estado = null,
+    string? email = null,
+    string? telefone = null)
+        {
+            var dados = await _service.ExportarSemPaginacaoAsync(
+                dataInicio, dataFim, nome, cpf, matriculaAstel, inadimplente,
+                cidade, estado, email, telefone
+            );
+
+            var arquivo = _service.GerarExcel(dados);
+
+            return File(
+                arquivo,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "financeiro_export.xlsx"
+            );
+        }
+
+
     }
 }

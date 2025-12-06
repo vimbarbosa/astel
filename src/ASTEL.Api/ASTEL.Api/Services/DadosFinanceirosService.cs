@@ -1,6 +1,7 @@
 ﻿using ASTEL.Api.Data;
 using ASTEL.Api.DTOs;
 using ASTEL.Api.Models;
+using ClosedXML.Excel;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
@@ -25,10 +26,11 @@ namespace ASTEL.Api.Services
         public async Task<(List<DadosFinanceirosDTO> dados, int totalCount)>
 GetFilteredAsync(DateTime? inicio, DateTime? fim, string? nome, string? cpf,
                  long? matriculaAstel, bool? inadimplente,
+                 string? cidade, string? estado, string? email, string? telefone,
                  int pageNumber, int pageSize)
         {
-            //string connStr = "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
-            string connStr = "Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;\r\n";
+            string connStr = "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+            //string connStr = "Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;\r\n";
 
             // ------------------------- CTE -------------------------
             var cte = @"
@@ -46,6 +48,17 @@ GetFilteredAsync(DateTime? inicio, DateTime? fim, string? nome, string? cpf,
         c.Telefone,
         c.Situacao,
         c.Ativo,
+        c.Logradouro,
+        c.CelSkype,
+        c.Estado,
+        c.Cidade,
+        c.TipoEndereco,
+        c.Correspondencia,
+        c.Numero,
+        c.Complemento,
+        c.Bairro,
+        c.Email,
+        c.CEP,
         f.Ano,
         f.Mes,
         f.ValorPago,
@@ -65,13 +78,12 @@ GetFilteredAsync(DateTime? inicio, DateTime? fim, string? nome, string? cpf,
     FROM DadosCadastrais c
     LEFT JOIN DadosFinanceiros f
         ON c.Id = f.IdDadosCadastrais
-    WHERE 1 = 1
+    WHERE C.Ativo = 1
 ";
 
             var filters = "";
             var parameters = new List<SqlParameter>();
 
-            // ------------------------- FILTROS -------------------------
             if (!string.IsNullOrWhiteSpace(nome))
             {
                 filters += " AND c.Nome LIKE @nome";
@@ -90,6 +102,30 @@ GetFilteredAsync(DateTime? inicio, DateTime? fim, string? nome, string? cpf,
                 parameters.Add(new SqlParameter("@matriculaAstel", matriculaAstel.Value));
             }
 
+            if (!string.IsNullOrWhiteSpace(cidade))
+            {
+                filters += " AND c.Cidade LIKE @cidade";
+                parameters.Add(new SqlParameter("@cidade", $"%{cidade}%"));
+            }
+
+            if (!string.IsNullOrWhiteSpace(estado))
+            {
+                filters += " AND c.Estado LIKE @estado";
+                parameters.Add(new SqlParameter("@estado", $"%{estado}%"));
+            }
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                filters += " AND c.Email LIKE @email";
+                parameters.Add(new SqlParameter("@email", $"%{email}%"));
+            }
+
+            if (!string.IsNullOrWhiteSpace(telefone))
+            {
+                filters += " AND c.Telefone LIKE @telefone";
+                parameters.Add(new SqlParameter("@telefone", $"%{telefone}%"));
+            }
+
             if (inicio.HasValue)
             {
                 filters += " AND (f.Ano IS NULL OR DATEFROMPARTS(f.Ano, f.Mes, 1) >= @inicio)";
@@ -101,7 +137,6 @@ GetFilteredAsync(DateTime? inicio, DateTime? fim, string? nome, string? cpf,
                 filters += " AND (f.Ano IS NULL OR DATEFROMPARTS(f.Ano, f.Mes, 1) <= @fim)";
                 parameters.Add(new SqlParameter("@fim", fim.Value));
             }
-
             var fullCte = cte + filters + "\n)";
 
             // ------------------------- COUNT -------------------------
@@ -180,7 +215,18 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
                     Ano = reader["Ano"] as int?,
                     Mes = reader["Mes"] as int?,
                     ValorPago = reader["ValorPago"] as double?,
-                    Inadimplente = Convert.ToBoolean(reader["Inadimplente"])
+                    Inadimplente = Convert.ToBoolean(reader["Inadimplente"]),
+                    Logradouro = reader["Logradouro"]?.ToString(),
+                    CelSkype = reader["CelSkype"]?.ToString(),
+                    Estado = reader["Estado"]?.ToString(),
+                    Cidade = reader["Cidade"]?.ToString(),
+                    TipoEndereco = reader["TipoEndereco"]?.ToString(),
+                    Correspondencia = reader["Correspondencia"]?.ToString(),
+                    Numero = reader["Numero"]?.ToString(),
+                    Complemento = reader["Complemento"]?.ToString(),
+                    Bairro = reader["Bairro"]?.ToString(),
+                    Email = reader["Email"]?.ToString(),
+                    CEP = reader["CEP"]?.ToString()
                 });
             }
 
@@ -241,5 +287,133 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
             _context.SaveChanges();
             return true;
         }
+
+        public async Task<List<DadosFinanceirosDTO>> ExportarSemPaginacaoAsync(
+            DateTime? inicio, DateTime? fim, string? nome, string? cpf,
+            long? matriculaAstel, bool? inadimplente,
+            string? cidade, string? estado, string? email, string? telefone)
+        {
+            var (dados, _) = await GetFilteredAsync(
+                inicio, fim, nome, cpf, matriculaAstel, inadimplente,
+                cidade, estado, email, telefone,
+                pageNumber: 1,
+                pageSize: int.MaxValue
+            );
+
+            return dados;
+        }
+
+        public string GerarCsv(List<DadosFinanceirosDTO> dados)
+        {
+            var sb = new System.Text.StringBuilder();
+
+            sb.AppendLine("Id,IdCadastro,MatriculaSistel,MatriculaAstel,Nome,CPF,RG,Logradouro,Numero,Complemento,Bairro,Cidade,Estado,TipoEndereco,Correspondencia,CEP,Telefone,CelSkype,Email,Situacao,EstadoCivil,Ativo,Ano,Mes,ValorPago,Inadimplente");
+
+            foreach (var d in dados)
+            {
+                sb.AppendLine(string.Join(",", new string[]
+                {
+            d.Id?.ToString(),
+            d.IdDadosCadastrais.ToString(),
+            d.MatriculaSistel?.ToString() ?? "",
+            d.MatriculaAstel?.ToString() ?? "",
+            Escape(d.Nome),
+            Escape(d.CPF),
+            Escape(d.RG),
+            Escape(d.Logradouro),
+            Escape(d.Numero),
+            Escape(d.Complemento),
+            Escape(d.Bairro),
+            Escape(d.Cidade),
+            Escape(d.Estado),
+            Escape(d.TipoEndereco),
+            Escape(d.Correspondencia),
+            Escape(d.CEP),
+            Escape(d.Telefone),
+            Escape(d.CelSkype),
+            Escape(d.Email),
+            Escape(d.Situacao),
+            Escape(d.EstadoCivil),
+            d.Ativo?.ToString() ?? "",
+            d.Ano?.ToString() ?? "",
+            d.Mes?.ToString() ?? "",
+            d.ValorPago?.ToString() ?? "",
+            d.Inadimplente ? "Sim" : "Não"
+                }));
+            }
+
+            return sb.ToString();
+        }
+
+        private string Escape(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return "";
+
+            // Escapa vírgulas e aspas
+            return "\"" + value.Replace("\"", "\"\"") + "\"";
+        }
+
+        public byte[] GerarExcel(List<DadosFinanceirosDTO> dados)
+        {
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add("Financeiro");
+
+            // Cabeçalhos
+            string[] headers = new[]
+            {
+        "Id","IdCadastro","MatriculaSistel","MatriculaAstel","Nome","CPF","RG",
+        "Logradouro","Numero","Complemento","Bairro","Cidade","Estado","TipoEndereco",
+        "Correspondencia","CEP","Telefone","CelSkype","Email","Situacao","EstadoCivil",
+        "Ativo","Ano","Mes","ValorPago","Inadimplente"
+    };
+
+            for (int i = 0; i < headers.Length; i++)
+                ws.Cell(1, i + 1).Value = headers[i];
+
+            ws.Range(1, 1, 1, headers.Length).Style.Font.Bold = true;
+
+            // Dados
+            int row = 2;
+            foreach (var d in dados)
+            {
+                ws.Cell(row, 1).Value = d.Id;
+                ws.Cell(row, 2).Value = d.IdDadosCadastrais;
+                ws.Cell(row, 3).Value = d.MatriculaSistel;
+                ws.Cell(row, 4).Value = d.MatriculaAstel;
+                ws.Cell(row, 5).Value = d.Nome;
+                ws.Cell(row, 6).Value = d.CPF;
+                ws.Cell(row, 7).Value = d.RG;
+                ws.Cell(row, 8).Value = d.Logradouro;
+                ws.Cell(row, 9).Value = d.Numero;
+                ws.Cell(row, 10).Value = d.Complemento;
+                ws.Cell(row, 11).Value = d.Bairro;
+                ws.Cell(row, 12).Value = d.Cidade;
+                ws.Cell(row, 13).Value = d.Estado;
+                ws.Cell(row, 14).Value = d.TipoEndereco;
+                ws.Cell(row, 15).Value = d.Correspondencia;
+                ws.Cell(row, 16).Value = d.CEP;
+                ws.Cell(row, 17).Value = d.Telefone;
+                ws.Cell(row, 18).Value = d.CelSkype;
+                ws.Cell(row, 19).Value = d.Email;
+                ws.Cell(row, 20).Value = d.Situacao;
+                ws.Cell(row, 21).Value = d.EstadoCivil;
+                ws.Cell(row, 22).Value = d.Ativo.HasValue ? d.Ativo.Value : 0;
+                ws.Cell(row, 23).Value = d.Ano;
+                ws.Cell(row, 24).Value = d.Mes;
+                ws.Cell(row, 25).Value = d.ValorPago;
+                ws.Cell(row, 26).Value = d.Inadimplente ? "Sim" : "Não";
+
+                row++;
+            }
+
+            ws.Columns().AdjustToContents();
+
+            using var ms = new MemoryStream();
+            workbook.SaveAs(ms);
+            return ms.ToArray();
+        }
+
+
     }
 }

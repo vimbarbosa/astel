@@ -16,6 +16,7 @@ namespace ASTEL.Api.Controllers
             _service = service;
         }
 
+        // GET COM PAGINAÇÃO E FILTROS
         [HttpGet]
         public async Task<ActionResult<IEnumerable<DadosCadastraisDTO>>> GetAll(
             string? nome = null,
@@ -52,7 +53,20 @@ namespace ASTEL.Api.Controllers
                 CPF = d.CPF,
                 RG = d.RG,
                 Ativo = d.Ativo,
-                DescontoFolha = d.DescontoFolha
+                DescontoFolha = d.DescontoFolha,
+
+                // NOVOS CAMPOS
+                Logradouro = d.Logradouro,
+                CelSkype = d.CelSkype,
+                Estado = d.Estado,
+                Cidade = d.Cidade,
+                TipoEndereco = d.TipoEndereco,
+                Correspondencia = d.Correspondencia,
+                Numero = d.Numero,
+                Complemento = d.Complemento,
+                Bairro = d.Bairro,
+                Email = d.Email,
+                CEP = d.CEP
             });
 
             Response.Headers["X-Total-Count"] = totalCount.ToString();
@@ -63,7 +77,7 @@ namespace ASTEL.Api.Controllers
             return Ok(dtos);
         }
 
-
+        // GET BY ID
         [HttpGet("{id:long}")]
         public async Task<ActionResult<DadosCadastraisDTO>> GetById(long id)
         {
@@ -86,12 +100,25 @@ namespace ASTEL.Api.Controllers
                 CPF = d.CPF,
                 RG = d.RG,
                 Ativo = d.Ativo,
-                DescontoFolha = d.DescontoFolha
+                DescontoFolha = d.DescontoFolha,
+
+                Logradouro = d.Logradouro,
+                CelSkype = d.CelSkype,
+                Estado = d.Estado,
+                Cidade = d.Cidade,
+                TipoEndereco = d.TipoEndereco,
+                Correspondencia = d.Correspondencia,
+                Numero = d.Numero,
+                Complemento = d.Complemento,
+                Bairro = d.Bairro,
+                Email = d.Email,
+                CEP = d.CEP
             };
 
             return Ok(dto);
         }
 
+        // CREATE
         [HttpPost]
         public async Task<ActionResult<DadosCadastraisDTO>> Create([FromBody] DadosCadastraisDTO dto)
         {
@@ -110,7 +137,19 @@ namespace ASTEL.Api.Controllers
                 CPF = dto.CPF,
                 RG = dto.RG,
                 Ativo = dto.Ativo,
-                DescontoFolha = dto.DescontoFolha
+                DescontoFolha = dto.DescontoFolha,
+
+                Logradouro = dto.Logradouro,
+                CelSkype = dto.CelSkype,
+                Estado = dto.Estado,
+                Cidade = dto.Cidade,
+                TipoEndereco = dto.TipoEndereco,
+                Correspondencia = dto.Correspondencia,
+                Numero = dto.Numero,
+                Complemento = dto.Complemento,
+                Bairro = dto.Bairro,
+                Email = dto.Email,
+                CEP = dto.CEP
             };
 
             await _service.AddAsync(model);
@@ -120,6 +159,7 @@ namespace ASTEL.Api.Controllers
             return CreatedAtAction(nameof(GetById), new { id = model.Id }, dto);
         }
 
+        // UPDATE
         [HttpPut("{id:long}")]
         public async Task<IActionResult> Update(long id, [FromBody] DadosCadastraisDTO dto)
         {
@@ -130,7 +170,6 @@ namespace ASTEL.Api.Controllers
             if (existente == null)
                 return NotFound();
 
-            existente.Id = dto.Id;
             existente.MatriculaSistel = dto.MatriculaSistel;
             existente.MatriculaAstel = dto.MatriculaAstel;
             existente.Nome = dto.Nome;
@@ -145,10 +184,25 @@ namespace ASTEL.Api.Controllers
             existente.Ativo = dto.Ativo;
             existente.DescontoFolha = dto.DescontoFolha;
 
+            // NOVOS CAMPOS
+            existente.Logradouro = dto.Logradouro;
+            existente.CelSkype = dto.CelSkype;
+            existente.Estado = dto.Estado;
+            existente.Cidade = dto.Cidade;
+            existente.TipoEndereco = dto.TipoEndereco;
+            existente.Correspondencia = dto.Correspondencia;
+            existente.Numero = dto.Numero;
+            existente.Complemento = dto.Complemento;
+            existente.Bairro = dto.Bairro;
+            existente.Email = dto.Email;
+            existente.CEP = dto.CEP;
+
             await _service.UpdateAsync(existente);
+
             return Ok(new { message = "Registro atualizado com sucesso!" });
         }
 
+        // DELETE
         [HttpDelete("{id:long}")]
         public async Task<IActionResult> Delete(long id)
         {
