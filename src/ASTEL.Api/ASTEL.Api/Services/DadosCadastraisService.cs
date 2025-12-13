@@ -29,6 +29,8 @@ namespace ASTEL.Api.Services
         string? nome,
         string? cpf,
         long? matriculaAstel,
+        string? formapagamento,
+        bool? ativo,
         int pageNumber,
         int pageSize)
         {
@@ -42,6 +44,12 @@ namespace ASTEL.Api.Services
 
             if (matriculaAstel.HasValue)
                 query = query.Where(x => x.MatriculaAstel == matriculaAstel.Value);
+
+            if (!string.IsNullOrWhiteSpace(formapagamento))
+                query = query.Where(x => x.FormaPagamento != null && x.FormaPagamento.Contains(formapagamento));
+
+            if (ativo.HasValue)
+                query = query.Where(x => x.Ativo == ativo.Value);
 
             var totalCount = await query.CountAsync();
 
@@ -101,6 +109,25 @@ namespace ASTEL.Api.Services
             _context.DadosCadastrais.Remove(dados);
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        // AUTocomplete - Busca nomes por parte do nome
+        public async Task<List<(long Id, string Nome, long? MatriculaAstel)>> SearchNomesAsync(string? termo, int limit = 10)
+        {
+            var query = _context.DadosCadastrais
+                .AsNoTracking()
+                .Where(x => x.Ativo == true);
+
+            if (!string.IsNullOrWhiteSpace(termo))
+            {
+                query = query.Where(x => x.Nome.Contains(termo));
+            }
+
+            return await query
+                .OrderBy(x => x.Nome)
+                .Take(limit)
+                .Select(x => new ValueTuple<long, string, long?>(x.Id, x.Nome, x.MatriculaAstel))
+                .ToListAsync();
         }
     }
 }

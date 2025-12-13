@@ -22,6 +22,8 @@ namespace ASTEL.Api.Controllers
             string? nome = null,
             string? cpf = null,
             long? matriculaAstel = null,
+            string? formapagamento = null,
+            bool? ativo = null,
             int pageNumber = 1,
             int pageSize = 10)
         {
@@ -32,6 +34,8 @@ namespace ASTEL.Api.Controllers
                 nome,
                 cpf,
                 matriculaAstel,
+                formapagamento,
+                ativo,
                 pageNumber,
                 pageSize
             );
@@ -66,7 +70,8 @@ namespace ASTEL.Api.Controllers
                 Complemento = d.Complemento,
                 Bairro = d.Bairro,
                 Email = d.Email,
-                CEP = d.CEP
+                CEP = d.CEP,
+                FormaPagamento = d.FormaPagamento
             });
 
             Response.Headers["X-Total-Count"] = totalCount.ToString();
@@ -112,7 +117,8 @@ namespace ASTEL.Api.Controllers
                 Complemento = d.Complemento,
                 Bairro = d.Bairro,
                 Email = d.Email,
-                CEP = d.CEP
+                CEP = d.CEP,
+                FormaPagamento = d.FormaPagamento
             };
 
             return Ok(dto);
@@ -149,7 +155,8 @@ namespace ASTEL.Api.Controllers
                 Complemento = dto.Complemento,
                 Bairro = dto.Bairro,
                 Email = dto.Email,
-                CEP = dto.CEP
+                CEP = dto.CEP,
+                FormaPagamento = dto.FormaPagamento
             };
 
             await _service.AddAsync(model);
@@ -196,6 +203,7 @@ namespace ASTEL.Api.Controllers
             existente.Bairro = dto.Bairro;
             existente.Email = dto.Email;
             existente.CEP = dto.CEP;
+            existente.FormaPagamento = dto.FormaPagamento;
 
             await _service.UpdateAsync(existente);
 
@@ -211,6 +219,27 @@ namespace ASTEL.Api.Controllers
                 return NotFound();
 
             return NoContent();
+        }
+
+        // AUTocomplete - Busca nomes para autocomplete
+        [HttpGet("autocomplete")]
+        public async Task<ActionResult<IEnumerable<AutocompleteNomeDTO>>> AutocompleteNomes(
+            [FromQuery] string? termo = null,
+            [FromQuery] int limit = 10)
+        {
+            if (limit <= 0 || limit > 50)
+                limit = 10; // Limita entre 1 e 50 resultados
+
+            var resultados = await _service.SearchNomesAsync(termo, limit);
+
+            var dtos = resultados.Select(r => new AutocompleteNomeDTO
+            {
+                Id = r.Id,
+                Nome = r.Nome,
+                MatriculaAstel = r.MatriculaAstel
+            });
+
+            return Ok(dtos);
         }
     }
 }

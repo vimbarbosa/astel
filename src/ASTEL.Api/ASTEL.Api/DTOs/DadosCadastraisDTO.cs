@@ -34,5 +34,6 @@
         public string? Bairro { get; set; }
         public string? Email { get; set; }
         public string? CEP { get; set; }
+        public string? FormaPagamento { get; set; }
     }
 }

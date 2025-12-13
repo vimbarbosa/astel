@@ -2,6 +2,7 @@
 using System.Data;
 using System.Globalization;
 using System.Text;
+using ClosedXML.Excel;
 
 namespace ASTEL.Api.Services
 {
@@ -118,7 +119,8 @@ namespace ASTEL.Api.Services
             CPF AS [CPF],
             RG AS [RG],
             Ativo AS [Ativo],
-            DescontoFolha AS [Desconto em Folha]
+            DescontoFolha AS [Desconto em Folha],
+            FormaPagamento AS [Forma de Pagamento]
         FROM DadosCadastrais
         ORDER BY MatriculaSistel;
     ";
@@ -127,7 +129,7 @@ namespace ASTEL.Api.Services
             await using var reader = await command.ExecuteReaderAsync();
 
             var sb = new StringBuilder();
-            sb.AppendLine("Matrícula Sistel Nº;ID Cliente;Nome;Endereço;Situação;Valor do Benefício;Estado Civil;Telefone;Nome da Esposa;CPF;RG;Ativo;Desconto em Folha");
+            sb.AppendLine("Matrícula Sistel Nº;ID Cliente;Nome;Endereço;Situação;Valor do Benefício;Estado Civil;Telefone;Nome da Esposa;CPF;RG;Ativo;Desconto em Folha;Forma de Pagamento");
 
             while (await reader.ReadAsync())
             {
@@ -144,8 +146,9 @@ namespace ASTEL.Api.Services
                 string rg = reader["RG"]?.ToString() ?? "";
                 string ativo = (reader["Ativo"] is bool b1) ? (b1 ? "Sim" : "Não") : "";
                 string desconto = (reader["Desconto em Folha"] is bool b2) ? (b2 ? "Sim" : "Não") : "";
+                string formaPagamento = reader["Forma de Pagamento"]?.ToString() ?? "";
 
-                sb.AppendLine($"{matriculaSistel};{matriculaAstel};{nome};{endereco};{situacao};{valorBeneficio};{estadoCivil};{telefone};{nomeEsposa};{cpf};{rg};{ativo};{desconto}");
+                sb.AppendLine($"{matriculaSistel};{matriculaAstel};{nome};{endereco};{situacao};{valorBeneficio};{estadoCivil};{telefone};{nomeEsposa};{cpf};{rg};{ativo};{desconto};{formaPagamento}");
             }
 
             var utf8WithBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
@@ -198,19 +201,38 @@ namespace ASTEL.Api.Services
                 await bulkCopy.WriteToServerAsync(dataTable);
             }
 
+            // MERGE usando IdDadosCadastrais obtido via JOIN com DadosCadastrais
+            // Inclui Mes na cláusula ON para evitar atualização duplicada
+            // Gera Id concatenando IdDadosCadastrais + Ano + Mes (mesmo padrão do método Add)
+            // Usa CAST(CONCAT(...) AS BIGINT) para compatibilidade com SQL Server 2012+
+            // Agrupa por IdDadosCadastrais, Ano e Mes para evitar duplicatas (pega MAX(ValorPago))
+            // Quando ValorPago for 0 ou NULL, remove o registro da base
             var mergeSql = @"
                     MERGE INTO DadosFinanceiros AS Target
-                    USING #TempDadosFinanceiros AS Source
-                    ON Target.MatriculaSistel = Source.MatriculaSistel
-                       AND Target.MatriculaAstel = Source.MatriculaAstel
-                       AND Target.Ano = Source.Ano
-                    WHEN MATCHED THEN
+                    USING (
+                        SELECT 
+                            CAST(CONCAT(CAST(c.Id AS VARCHAR), CAST(t.Ano AS VARCHAR), CAST(CAST(t.Mes AS INT) AS VARCHAR)) AS BIGINT) AS Id,
+                            c.Id AS IdDadosCadastrais,
+                            t.Ano,
+                            CAST(t.Mes AS INT) AS Mes,
+                            MAX(t.ValorPago) AS ValorPago
+                        FROM #TempDadosFinanceiros t
+                        INNER JOIN DadosCadastrais c 
+                            ON (t.MatriculaAstel = c.MatriculaAstel)
+                        WHERE t.MatriculaAstel IS NOT NULL AND t.MatriculaAstel > 0
+                           AND t.Ano IS NOT NULL
+                           AND t.Mes IS NOT NULL
+                        GROUP BY c.Id, t.Ano, CAST(t.Mes AS INT)
+                    ) AS Source
+                    ON Target.Id = Source.Id
+                    WHEN MATCHED AND (Source.ValorPago IS NULL OR Source.ValorPago = 0) THEN
+                        DELETE
+                    WHEN MATCHED AND (Source.ValorPago IS NOT NULL AND Source.ValorPago <> 0) THEN
                         UPDATE SET 
-                            Target.Mes = Source.Mes,
                             Target.ValorPago = Source.ValorPago
-                    WHEN NOT MATCHED BY TARGET THEN
-                        INSERT (MatriculaSistel, MatriculaAstel, Ano, Mes, ValorPago)
-                        VALUES (Source.MatriculaSistel, Source.MatriculaAstel, Source.Ano, Source.Mes, Source.ValorPago);
+                    WHEN NOT MATCHED BY TARGET AND (Source.ValorPago IS NOT NULL AND Source.ValorPago <> 0) THEN
+                        INSERT (Id, IdDadosCadastrais, Ano, Mes, ValorPago)
+                        VALUES (Source.Id, Source.IdDadosCadastrais, Source.Ano, Source.Mes, Source.ValorPago);
     ";
 
             await using (var mergeCmd = new SqlCommand(mergeSql, connection))
@@ -308,6 +330,107 @@ namespace ASTEL.Api.Services
             }
 
             return value;
+        }
+
+        public async Task<string> ImportExcelAsync(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return "Nenhum arquivo Excel foi enviado.";
+
+            var dataTable = CriarEstruturaTabela();
+
+            using var stream = file.OpenReadStream();
+            using var workbook = new XLWorkbook(stream);
+            var worksheet = workbook.Worksheet(1); // Primeira planilha
+
+            // Lê o cabeçalho
+            var headerRow = worksheet.Row(1);
+            var headers = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            
+            var lastColumn = worksheet.LastColumnUsed();
+            int maxColumn = lastColumn != null ? lastColumn.ColumnNumber() : 0;
+            
+            for (int col = 1; col <= maxColumn; col++)
+            {
+                var headerValue = headerRow.Cell(col).GetValue<string>()?.Trim();
+                if (!string.IsNullOrWhiteSpace(headerValue))
+                {
+                    headers[headerValue.ToLowerInvariant()] = col;
+                }
+            }
+
+            if (headers.Count == 0)
+                return "Arquivo Excel vazio ou sem cabeçalhos válidos.";
+
+            // Processa as linhas
+            var lastRow = worksheet.LastRowUsed();
+            int maxRow = lastRow != null ? lastRow.RowNumber() : 1;
+            
+            for (int row = 2; row <= maxRow; row++)
+            {
+                var rowData = worksheet.Row(row);
+                
+                // Função auxiliar para obter valor da célula
+                string? GetValue(string key)
+                {
+                    key = key.ToLowerInvariant();
+                    if (!headers.ContainsKey(key))
+                        return null;
+                    int colIndex = headers[key];
+                    var cell = rowData.Cell(colIndex);
+                    
+                    // Tenta obter como string primeiro, depois como número
+                    var stringValue = cell.GetValue<string>();
+                    if (!string.IsNullOrWhiteSpace(stringValue))
+                        return stringValue.Trim();
+                    
+                    // Se for número, converte para string
+                    if (cell.DataType == XLDataType.Number)
+                    {
+                        var numValue = cell.GetValue<double>();
+                        return numValue.ToString(CultureInfo.InvariantCulture);
+                    }
+                    
+                    return null;
+                }
+
+                try
+                {
+                    var dataRow = dataTable.NewRow();
+                    
+                    string? matriculaSistelTexto = NormalizeScientificNotation(GetValue("matrícula sistel nº") ?? GetValue("matricula sistel"));
+                    string? matriculaAstelTexto = NormalizeScientificNotation(GetValue("id cliente") ?? GetValue("matricula astel"));
+                    
+                    long matriculaSistel = ParseLong(matriculaSistelTexto);
+                    long matriculaAstel = ParseLong(matriculaAstelTexto);
+                    int ano = ParseInt(GetValue("ano"));
+                    double mes = ParseDouble(GetValue("mês") ?? GetValue("mes"));
+                    double valorPago = ParseDouble(GetValue("valor pago") ?? GetValue("valor pago (r$)") ?? GetValue("valor"));
+
+                    // Validação básica
+                    if (matriculaSistel == 0 && matriculaAstel == 0)
+                        continue; // Pula linha se não tiver matrícula
+
+                    dataRow["MatriculaSistel"] = matriculaSistel;
+                    dataRow["MatriculaAstel"] = matriculaAstel;
+                    dataRow["Ano"] = ano;
+                    dataRow["Mes"] = mes;
+                    dataRow["ValorPago"] = valorPago;
+
+                    dataTable.Rows.Add(dataRow);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ Erro ao processar linha {row}: {ex.Message}");
+                    continue;
+                }
+            }
+
+            if (dataTable.Rows.Count == 0)
+                return "Nenhum registro válido encontrado no arquivo Excel.";
+
+            await InserirOuAtualizarEmLoteAsync(dataTable);
+            return $"{dataTable.Rows.Count} registros de dados financeiros processados com sucesso!";
         }
     }
 }

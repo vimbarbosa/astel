@@ -110,5 +110,9 @@ namespace ASTEL.Api.Models
         [Column("CEP")]
         [MaxLength(50)]
         public string? CEP { get; set; }
+
+        [Column("FormaPagamento")]
+        [MaxLength(255)]
+        public string? FormaPagamento { get; set; }
     }
 }
