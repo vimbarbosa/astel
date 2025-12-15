@@ -89,6 +89,25 @@ namespace ASTEL.Api.Services
         END AS Inadimplente";
             }
 
+            // Constrói a condição ON do LEFT JOIN para filtros de data
+            string joinCondition = "ON c.Id = f.IdDadosCadastrais";
+            
+            if (inicio.HasValue || fim.HasValue)
+            {
+                if (inicio.HasValue && fim.HasValue)
+                {
+                    joinCondition += " AND (f.Ano IS NULL OR (DATEFROMPARTS(f.Ano, f.Mes, 1) >= @inicio AND DATEFROMPARTS(f.Ano, f.Mes, 1) <= @fim))";
+                }
+                else if (inicio.HasValue)
+                {
+                    joinCondition += " AND (f.Ano IS NULL OR DATEFROMPARTS(f.Ano, f.Mes, 1) >= @inicio)";
+                }
+                else if (fim.HasValue)
+                {
+                    joinCondition += " AND (f.Ano IS NULL OR DATEFROMPARTS(f.Ano, f.Mes, 1) <= @fim)";
+                }
+            }
+
             var cte = $@"
 ;WITH Base AS (
     SELECT 
@@ -124,7 +143,7 @@ namespace ASTEL.Api.Services
 
     FROM DadosCadastrais c
     LEFT JOIN DadosFinanceiros f
-        ON c.Id = f.IdDadosCadastrais
+        {joinCondition}
     WHERE c.Ativo = 1
 ";
 
@@ -169,7 +188,6 @@ namespace ASTEL.Api.Services
 
             if (inicio.HasValue)
             {
-                filters += " AND (f.Ano IS NULL OR DATEFROMPARTS(f.Ano, f.Mes, 1) >= @inicio)";
                 parameters.Add(new SqlParameter("@inicio", inicio.Value));
                 
                 // Adiciona parâmetros para a lógica de inadimplência se necessário
@@ -181,7 +199,6 @@ namespace ASTEL.Api.Services
 
             if (fim.HasValue)
             {
-                filters += " AND (f.Ano IS NULL OR DATEFROMPARTS(f.Ano, f.Mes, 1) <= @fim)";
                 parameters.Add(new SqlParameter("@fim", fim.Value));
                 
                 // Adiciona parâmetros para a lógica de inadimplência se necessário
