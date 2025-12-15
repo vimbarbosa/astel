@@ -36,7 +36,60 @@ namespace ASTEL.Api.Services
             //string connStr = "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
 
             // ------------------------- CTE -------------------------
-            var cte = @"
+            // Constrói a lógica de inadimplência baseada nos filtros de data
+            string inadimplenteLogic = "";
+            
+            if (inicio.HasValue || fim.HasValue)
+            {
+                // Se houver filtro de data, verifica inadimplência no período do filtro
+                inadimplenteLogic = @"
+        CASE 
+            WHEN EXISTS (
+                SELECT 1 
+                FROM DadosFinanceiros fx
+                WHERE fx.IdDadosCadastrais = c.Id
+                  AND fx.ValorPago IS NOT NULL";
+                
+                if (inicio.HasValue && fim.HasValue)
+                {
+                    inadimplenteLogic += @"
+                  AND DATEFROMPARTS(fx.Ano, fx.Mes, 1) >= @inicioInadimplente
+                  AND DATEFROMPARTS(fx.Ano, fx.Mes, 1) <= @fimInadimplente";
+                }
+                else if (inicio.HasValue)
+                {
+                    inadimplenteLogic += @"
+                  AND DATEFROMPARTS(fx.Ano, fx.Mes, 1) >= @inicioInadimplente";
+                }
+                else if (fim.HasValue)
+                {
+                    inadimplenteLogic += @"
+                  AND DATEFROMPARTS(fx.Ano, fx.Mes, 1) <= @fimInadimplente";
+                }
+                
+                inadimplenteLogic += @"
+            ) THEN 0
+            ELSE 1
+        END AS Inadimplente";
+            }
+            else
+            {
+                // Se não houver filtro de data, considera o último mês (comportamento atual)
+                inadimplenteLogic = @"
+        CASE 
+            WHEN EXISTS (
+                SELECT 1 
+                FROM DadosFinanceiros fx
+                WHERE fx.IdDadosCadastrais = c.Id
+                  AND fx.Ano = YEAR(GETDATE())
+                  AND fx.Mes = MONTH(GETDATE())
+                  AND fx.ValorPago IS NOT NULL
+            ) THEN 0
+            ELSE 1
+        END AS Inadimplente";
+            }
+
+            var cte = $@"
 ;WITH Base AS (
     SELECT 
         f.Id,
@@ -67,18 +120,7 @@ namespace ASTEL.Api.Services
         f.Ano,
         f.Mes,
         f.ValorPago,
-
-        CASE 
-            WHEN EXISTS (
-                SELECT 1 
-                FROM DadosFinanceiros fx
-                WHERE fx.IdDadosCadastrais = c.Id
-                  AND fx.Ano = YEAR(GETDATE())
-                  AND fx.Mes = MONTH(GETDATE())
-                  AND fx.ValorPago IS NOT NULL
-            ) THEN 0
-            ELSE 1
-        END AS Inadimplente
+{inadimplenteLogic}
 
     FROM DadosCadastrais c
     LEFT JOIN DadosFinanceiros f
@@ -129,12 +171,24 @@ namespace ASTEL.Api.Services
             {
                 filters += " AND (f.Ano IS NULL OR DATEFROMPARTS(f.Ano, f.Mes, 1) >= @inicio)";
                 parameters.Add(new SqlParameter("@inicio", inicio.Value));
+                
+                // Adiciona parâmetros para a lógica de inadimplência se necessário
+                if (inadimplenteLogic.Contains("@inicioInadimplente"))
+                {
+                    parameters.Add(new SqlParameter("@inicioInadimplente", inicio.Value));
+                }
             }
 
             if (fim.HasValue)
             {
                 filters += " AND (f.Ano IS NULL OR DATEFROMPARTS(f.Ano, f.Mes, 1) <= @fim)";
                 parameters.Add(new SqlParameter("@fim", fim.Value));
+                
+                // Adiciona parâmetros para a lógica de inadimplência se necessário
+                if (inadimplenteLogic.Contains("@fimInadimplente"))
+                {
+                    parameters.Add(new SqlParameter("@fimInadimplente", fim.Value));
+                }
             }
 
             if (descontoFolha.HasValue)
