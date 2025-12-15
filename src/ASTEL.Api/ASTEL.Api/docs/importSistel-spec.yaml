@@ -1,0 +1,137 @@
+openapi: 3.0.3
+info:
+  title: ASTEL API - Importação Sistel
+  description: |
+    Especificação do endpoint de importação de dados financeiros usando Matrícula Sistel.
+    
+    Este endpoint permite importar dados financeiros a partir de um arquivo Excel,
+    utilizando a Matrícula Sistel para identificar os registros cadastrais e extraindo
+    automaticamente o mês e ano do campo DATA_PAGAMENTO.
+  version: 1.0.0
+  contact:
+    name: ASTEL API Support
+
+servers:
+  - url: http://localhost:5000/api
+    description: Servidor de desenvolvimento local
+  - url: https://api.astel.com.br/api
+    description: Servidor de produção
+
+paths:
+  /Import/importSistel:
+    post:
+      tags:
+        - Importação
+      summary: Importa dados financeiros usando Matrícula Sistel
+      description: |
+        Importa dados financeiros de um arquivo Excel (.xlsx ou .xls).
+        
+        **Diferenças em relação ao importFinanceiroExcel:**
+        - Usa Matrícula Sistel (não Matrícula Astel) para buscar IdDadosCadastrais
+        - Extrai automaticamente mês e ano do campo DATA_PAGAMENTO
+        - Não requer campos Ano e Mês separados no arquivo
+        
+        **Layout da planilha (colunas obrigatórias):**
+        - **PATROCINADORA**: Campo ignorado
+        - **MATRICULA**: Campo numérico obrigatório - Matrícula Sistel (somente este campo, sem variações)
+        - **NOME**: Campo ignorado
+        - **REGPAT**: Campo ignorado
+        - **DATA_PAGAMENTO**: Campo de data obrigatório no formato DD/MM/YYYY ou formato serial do Excel
+        - **VALOR**: Valor numérico obrigatório do pagamento
+        - **VERBA**: Campo ignorado
+        
+        **Processamento:**
+        1. Valida o arquivo (extensão .xlsx ou .xls)
+        2. Lê o cabeçalho da primeira planilha
+        3. Para cada linha:
+           - Busca o campo MATRICULA (Matrícula Sistel)
+           - Extrai mês e ano do campo DATA_PAGAMENTO
+           - Busca o IdDadosCadastrais usando a Matrícula Sistel
+           - Extrai o campo VALOR
+           - Valida os dados
+           - Insere ou atualiza na tabela DadosFinanceiros
+        4. Retorna mensagem com quantidade de registros processados
+        
+        **Regras de negócio:**
+        - Linhas sem MATRICULA válida são ignoradas
+        - Linhas sem DATA_PAGAMENTO válida são ignoradas
+        - Se o registro já existir (mesmo IdDadosCadastrais + Ano + Mês), o valor é atualizado
+        - Registros com ValorPago = 0 ou NULL são removidos se já existirem
+        - Campos PATROCINADORA, NOME, REGPAT e VERBA são ignorados
+      operationId: importSistel
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Arquivo Excel (.xlsx ou .xls) contendo os dados financeiros
+            encoding:
+              file:
+                contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel
+      responses:
+        '200':
+          description: Importação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "150 registros de dados financeiros processados com sucesso!"
+                    description: Mensagem de sucesso com quantidade de registros processados
+              examples:
+                sucesso:
+                  summary: Importação bem-sucedida
+                  value:
+                    message: "150 registros de dados financeiros processados com sucesso!"
+        '400':
+          description: Erro na validação do arquivo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Mensagem de erro descritiva
+              examples:
+                arquivoVazio:
+                  summary: Arquivo não enviado
+                  value:
+                    message: "Nenhum arquivo foi enviado."
+                extensaoInvalida:
+                  summary: Extensão inválida
+                  value:
+                    message: "Arquivo deve ser Excel (.xlsx ou .xls)."
+                arquivoVazioExcel:
+                  summary: Arquivo Excel vazio
+                  value:
+                    message: "Arquivo Excel vazio ou sem cabeçalhos válidos."
+                nenhumRegistro:
+                  summary: Nenhum registro válido
+                  value:
+                    message: "Nenhum registro válido encontrado no arquivo Excel."
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Mensagem de erro
+    SuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Mensagem de sucesso
+

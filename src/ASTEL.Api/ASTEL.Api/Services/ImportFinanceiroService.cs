@@ -12,11 +12,11 @@ namespace ASTEL.Api.Services
 
         public ImportFinanceiroService(IConfiguration configuration)
         {
+            _connectionString = configuration.GetConnectionString("DefaultConnection")
+                ?? "Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+
             //_connectionString = configuration.GetConnectionString("DefaultConnection")
             //    ?? "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
-
-            _connectionString = configuration.GetConnectionString("DefaultConnection")
-                ?? "Server=sqlserver-2022,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
         }
 
         public async Task<byte[]> ExportCsvAsync()
@@ -431,6 +431,230 @@ namespace ASTEL.Api.Services
 
             await InserirOuAtualizarEmLoteAsync(dataTable);
             return $"{dataTable.Rows.Count} registros de dados financeiros processados com sucesso!";
+        }
+
+        public async Task<string> ImportSistelExcelAsync(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return "Nenhum arquivo Excel foi enviado.";
+
+            var dataTable = CriarEstruturaTabela();
+
+            using var stream = file.OpenReadStream();
+            using var workbook = new XLWorkbook(stream);
+            var worksheet = workbook.Worksheet(1); // Primeira planilha
+
+            // Lê o cabeçalho
+            var headerRow = worksheet.Row(1);
+            var headers = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            
+            var lastColumn = worksheet.LastColumnUsed();
+            int maxColumn = lastColumn != null ? lastColumn.ColumnNumber() : 0;
+            
+            for (int col = 1; col <= maxColumn; col++)
+            {
+                var headerValue = headerRow.Cell(col).GetValue<string>()?.Trim();
+                if (!string.IsNullOrWhiteSpace(headerValue))
+                {
+                    headers[headerValue.ToLowerInvariant()] = col;
+                }
+            }
+
+            if (headers.Count == 0)
+                return "Arquivo Excel vazio ou sem cabeçalhos válidos.";
+
+            // Processa as linhas
+            var lastRow = worksheet.LastRowUsed();
+            int maxRow = lastRow != null ? lastRow.RowNumber() : 1;
+            
+            for (int row = 2; row <= maxRow; row++)
+            {
+                var rowData = worksheet.Row(row);
+                
+                // Função auxiliar para obter valor da célula
+                string? GetValue(string key)
+                {
+                    key = key.ToLowerInvariant();
+                    if (!headers.ContainsKey(key))
+                        return null;
+                    int colIndex = headers[key];
+                    var cell = rowData.Cell(colIndex);
+                    
+                    // Tenta obter como string primeiro, depois como número
+                    var stringValue = cell.GetValue<string>();
+                    if (!string.IsNullOrWhiteSpace(stringValue))
+                        return stringValue.Trim();
+                    
+                    // Se for número, converte para string
+                    if (cell.DataType == XLDataType.Number)
+                    {
+                        var numValue = cell.GetValue<double>();
+                        return numValue.ToString(CultureInfo.InvariantCulture);
+                    }
+                    
+                    // Se for data, converte para string no formato padrão
+                    if (cell.DataType == XLDataType.DateTime)
+                    {
+                        var dateValue = cell.GetValue<DateTime>();
+                        return dateValue.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+                    }
+                    
+                    return null;
+                }
+
+                // Função auxiliar para obter valor de data
+                DateTime? GetDateValue(string key)
+                {
+                    key = key.ToLowerInvariant();
+                    if (!headers.ContainsKey(key))
+                        return null;
+                    int colIndex = headers[key];
+                    var cell = rowData.Cell(colIndex);
+                    
+                    // Tenta obter como DateTime
+                    if (cell.DataType == XLDataType.DateTime)
+                    {
+                        return cell.GetValue<DateTime>();
+                    }
+                    
+                    // Tenta obter como número (data serial do Excel)
+                    if (cell.DataType == XLDataType.Number)
+                    {
+                        var numValue = cell.GetValue<double>();
+                        return DateTime.FromOADate(numValue);
+                    }
+                    
+                    // Tenta fazer parse da string
+                    var stringValue = cell.GetValue<string>();
+                    if (!string.IsNullOrWhiteSpace(stringValue))
+                    {
+                        if (DateTime.TryParse(stringValue, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+                            return date;
+                    }
+                    
+                    return null;
+                }
+
+                try
+                {
+                    var dataRow = dataTable.NewRow();
+                    
+                    // Busca MATRICULA (somente matrícula sistel, conforme layout da planilha)
+                    // Layout: PATROCINADORA | MATRICULA | NOME | REGPAT | DATA_PAGAMENTO | VALOR | VERBA
+                    string? matriculaSistelTexto = NormalizeScientificNotation(GetValue("matricula"));
+                    
+                    long matriculaSistel = ParseLong(matriculaSistelTexto);
+                    
+                    // Extrai mês e ano do campo DATA_PAGAMENTO
+                    DateTime? dataPagamento = GetDateValue("data_pagamento");
+                    
+                    int ano = 0;
+                    int mes = 0;
+                    
+                    if (dataPagamento.HasValue)
+                    {
+                        ano = dataPagamento.Value.Year;
+                        mes = dataPagamento.Value.Month;
+                    }
+                    else
+                    {
+                        // Se DATA_PAGAMENTO não estiver disponível, pula a linha
+                        continue;
+                    }
+                    
+                    // Busca VALOR (campo do layout da planilha)
+                    double valorPago = ParseDouble(GetValue("valor"));
+
+                    // Validação básica
+                    if (matriculaSistel == 0)
+                        continue; // Pula linha se não tiver matrícula sistel
+                    
+                    if (ano == 0 || mes == 0)
+                        continue; // Pula linha se não tiver data válida
+
+                    dataRow["MatriculaSistel"] = matriculaSistel;
+                    dataRow["MatriculaAstel"] = 0; // Não usado na importação Sistel
+                    dataRow["Ano"] = ano;
+                    dataRow["Mes"] = mes;
+                    dataRow["ValorPago"] = valorPago;
+
+                    dataTable.Rows.Add(dataRow);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ Erro ao processar linha {row}: {ex.Message}");
+                    continue;
+                }
+            }
+
+            if (dataTable.Rows.Count == 0)
+                return "Nenhum registro válido encontrado no arquivo Excel.";
+
+            await InserirOuAtualizarEmLoteSistelAsync(dataTable);
+            return $"{dataTable.Rows.Count} registros de dados financeiros processados com sucesso!";
+        }
+
+        private async Task InserirOuAtualizarEmLoteSistelAsync(DataTable dataTable)
+        {
+            await using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            var createTempTable = @"
+        IF OBJECT_ID('tempdb..#TempDadosFinanceiros') IS NOT NULL DROP TABLE #TempDadosFinanceiros;
+        CREATE TABLE #TempDadosFinanceiros (
+            MatriculaSistel BIGINT,
+            MatriculaAstel BIGINT,
+            Ano INT,
+            Mes FLOAT,
+            ValorPago FLOAT
+        );
+    ";
+            await using (var createCmd = new SqlCommand(createTempTable, connection))
+                await createCmd.ExecuteNonQueryAsync();
+
+            using (var bulkCopy = new SqlBulkCopy(connection)
+            {
+                DestinationTableName = "#TempDadosFinanceiros",
+                BatchSize = 1000
+            })
+            {
+                foreach (DataColumn col in dataTable.Columns)
+                    bulkCopy.ColumnMappings.Add(col.ColumnName, col.ColumnName);
+
+                await bulkCopy.WriteToServerAsync(dataTable);
+            }
+
+            // MERGE usando IdDadosCadastrais obtido via JOIN com DadosCadastrais usando MatriculaSistel
+            var mergeSql = @"
+                    MERGE INTO DadosFinanceiros AS Target
+                    USING (
+                        SELECT 
+                            CAST(CONCAT(CAST(c.Id AS VARCHAR), CAST(t.Ano AS VARCHAR), CAST(CAST(t.Mes AS INT) AS VARCHAR)) AS BIGINT) AS Id,
+                            c.Id AS IdDadosCadastrais,
+                            t.Ano,
+                            CAST(t.Mes AS INT) AS Mes,
+                            MAX(t.ValorPago) AS ValorPago
+                        FROM #TempDadosFinanceiros t
+                        INNER JOIN DadosCadastrais c 
+                            ON (t.MatriculaSistel = c.MatriculaSistel)
+                        WHERE t.MatriculaSistel IS NOT NULL AND t.MatriculaSistel > 0
+                           AND t.Ano IS NOT NULL
+                           AND t.Mes IS NOT NULL
+                        GROUP BY c.Id, t.Ano, CAST(t.Mes AS INT)
+                    ) AS Source
+                    ON Target.Id = Source.Id
+                    WHEN MATCHED AND (Source.ValorPago IS NULL OR Source.ValorPago = 0) THEN
+                        DELETE
+                    WHEN MATCHED AND (Source.ValorPago IS NOT NULL AND Source.ValorPago <> 0) THEN
+                        UPDATE SET 
+                            Target.ValorPago = Source.ValorPago
+                    WHEN NOT MATCHED BY TARGET AND (Source.ValorPago IS NOT NULL AND Source.ValorPago <> 0) THEN
+                        INSERT (Id, IdDadosCadastrais, Ano, Mes, ValorPago)
+                        VALUES (Source.Id, Source.IdDadosCadastrais, Source.Ano, Source.Mes, Source.ValorPago);
+    ";
+
+            await using (var mergeCmd = new SqlCommand(mergeSql, connection))
+                await mergeCmd.ExecuteNonQueryAsync();
         }
     }
 }
