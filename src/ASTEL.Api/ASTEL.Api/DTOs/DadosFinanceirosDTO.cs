@@ -39,4 +39,7 @@
     
     // Soma total do ValorPago (preenchido no endpoint Filtrar)
     public double? SomaValorPago { get; set; }
+    
+    // Total de registros retornados (preenchido no endpoint Filtrar)
+    public int? TotalRegistros { get; set; }
 }

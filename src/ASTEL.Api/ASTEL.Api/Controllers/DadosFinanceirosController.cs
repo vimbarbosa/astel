@@ -42,10 +42,11 @@ namespace ASTEL.Api.Controllers
 
             int totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
-            // Adiciona SomaValorPago em cada registro
+            // Adiciona SomaValorPago e TotalRegistros em cada registro
             foreach (var dado in dados)
             {
                 dado.SomaValorPago = somaValorPago;
+                dado.TotalRegistros = dados.Count;
             }
 
             Response.Headers["X-Total-Count"] = totalCount.ToString();
