@@ -156,40 +156,6 @@ namespace ASTEL.Api.Services
     LEFT JOIN DadosFinanceiros f
         {joinCondition}
     WHERE c.Ativo = 1
-),
-Base AS (
-    SELECT 
-        Id,
-        IdDadosCadastrais,
-        MatriculaSistel,
-        MatriculaAstel,
-        Nome,
-        CPF,
-        RG,
-        Endereco,
-        EstadoCivil,
-        Telefone,
-        Situacao,
-        Ativo,
-        DescontoFolha,
-        Logradouro,
-        CelSkype,
-        Estado,
-        Cidade,
-        TipoEndereco,
-        Correspondencia,
-        Numero,
-        Complemento,
-        Bairro,
-        Email,
-        CEP,
-        FormaPagamento,
-        Ano,
-        Mes,
-        ValorPago,
-        Inadimplente
-    FROM BaseCompleta
-    WHERE RowNum = 1
 ";
 
             var filters = "";
@@ -265,7 +231,43 @@ Base AS (
                 parameters.Add(new SqlParameter("@formapagamento", $"%{formapagamento}%"));
             }
 
-            var fullCte = cte + filters + "\n)";
+            // Aplica os filtros na CTE BaseCompleta antes de criar a CTE Base
+            var fullCte = cte + filters + @"
+),
+Base AS (
+    SELECT 
+        Id,
+        IdDadosCadastrais,
+        MatriculaSistel,
+        MatriculaAstel,
+        Nome,
+        CPF,
+        RG,
+        Endereco,
+        EstadoCivil,
+        Telefone,
+        Situacao,
+        Ativo,
+        DescontoFolha,
+        Logradouro,
+        CelSkype,
+        Estado,
+        Cidade,
+        TipoEndereco,
+        Correspondencia,
+        Numero,
+        Complemento,
+        Bairro,
+        Email,
+        CEP,
+        FormaPagamento,
+        Ano,
+        Mes,
+        ValorPago,
+        Inadimplente
+    FROM BaseCompleta
+    WHERE RowNum = 1
+)";
 
             // ------------------------- COUNT -------------------------
             string countSql = fullCte + @"
