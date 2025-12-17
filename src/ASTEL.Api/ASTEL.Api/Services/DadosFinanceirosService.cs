@@ -115,7 +115,7 @@ namespace ASTEL.Api.Services
             }
 
             var cte = $@"
-;WITH Base AS (
+;WITH BaseCompleta AS (
     SELECT 
         f.Id,
         c.Id AS IdDadosCadastrais,
@@ -145,12 +145,51 @@ namespace ASTEL.Api.Services
         f.Ano,
         f.Mes,
         f.ValorPago,
-{inadimplenteLogic}
+{inadimplenteLogic},
+        ROW_NUMBER() OVER (PARTITION BY c.Id ORDER BY 
+            CASE WHEN f.Ano IS NULL THEN 0 ELSE 1 END DESC,
+            f.Ano DESC, 
+            f.Mes DESC
+        ) AS RowNum
 
     FROM DadosCadastrais c
     LEFT JOIN DadosFinanceiros f
         {joinCondition}
     WHERE c.Ativo = 1
+),
+Base AS (
+    SELECT 
+        Id,
+        IdDadosCadastrais,
+        MatriculaSistel,
+        MatriculaAstel,
+        Nome,
+        CPF,
+        RG,
+        Endereco,
+        EstadoCivil,
+        Telefone,
+        Situacao,
+        Ativo,
+        DescontoFolha,
+        Logradouro,
+        CelSkype,
+        Estado,
+        Cidade,
+        TipoEndereco,
+        Correspondencia,
+        Numero,
+        Complemento,
+        Bairro,
+        Email,
+        CEP,
+        FormaPagamento,
+        Ano,
+        Mes,
+        ValorPago,
+        Inadimplente
+    FROM BaseCompleta
+    WHERE RowNum = 1
 ";
 
             var filters = "";
