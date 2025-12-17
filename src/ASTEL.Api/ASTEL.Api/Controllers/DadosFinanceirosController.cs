@@ -182,5 +182,12 @@ namespace ASTEL.Api.Controllers
                 "modelo_importacao.xlsx"
             );
         }
+
+        [HttpGet("historico/{idDadosCadastrais}")]
+        public async Task<ActionResult<IEnumerable<HistoricoPagamentoDTO>>> GetHistoricoPagamentoPorUsuario(long idDadosCadastrais)
+        {
+            var historico = await _service.GetHistoricoPagamentoPorUsuarioAsync(idDadosCadastrais);
+            return Ok(historico);
+        }
     }
 }

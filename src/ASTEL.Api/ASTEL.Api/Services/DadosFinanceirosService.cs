@@ -41,7 +41,8 @@ namespace ASTEL.Api.Services
             
             if (inicio.HasValue || fim.HasValue)
             {
-                // Se houver filtro de data, verifica inadimplência no período do filtro
+                // Se houver filtro de data, verifica se o último mês filtrado contém pagamento
+                // Se não tiver pagamento no último mês filtrado, está inadimplente
                 inadimplenteLogic = @"
         CASE 
             WHEN EXISTS (
@@ -52,19 +53,24 @@ namespace ASTEL.Api.Services
                 
                 if (inicio.HasValue && fim.HasValue)
                 {
+                    // Verifica se há pagamento no último mês do período filtrado (fim)
                     inadimplenteLogic += @"
-                  AND DATEFROMPARTS(fx.Ano, fx.Mes, 1) >= @inicioInadimplente
-                  AND DATEFROMPARTS(fx.Ano, fx.Mes, 1) <= @fimInadimplente";
-                }
-                else if (inicio.HasValue)
-                {
-                    inadimplenteLogic += @"
-                  AND DATEFROMPARTS(fx.Ano, fx.Mes, 1) >= @inicioInadimplente";
+                  AND fx.Ano = YEAR(@fimInadimplente)
+                  AND fx.Mes = MONTH(@fimInadimplente)";
                 }
                 else if (fim.HasValue)
                 {
+                    // Se só tem fim, verifica o mês de fim
                     inadimplenteLogic += @"
-                  AND DATEFROMPARTS(fx.Ano, fx.Mes, 1) <= @fimInadimplente";
+                  AND fx.Ano = YEAR(@fimInadimplente)
+                  AND fx.Mes = MONTH(@fimInadimplente)";
+                }
+                else if (inicio.HasValue)
+                {
+                    // Se só tem início, verifica o mês de início
+                    inadimplenteLogic += @"
+                  AND fx.Ano = YEAR(@inicioInadimplente)
+                  AND fx.Mes = MONTH(@inicioInadimplente)";
                 }
                 
                 inadimplenteLogic += @"
@@ -596,6 +602,46 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
             using var ms = new MemoryStream();
             workbook.SaveAs(ms);
             return ms.ToArray();
+        }
+
+        public async Task<List<HistoricoPagamentoDTO>> GetHistoricoPagamentoPorUsuarioAsync(long idDadosCadastrais)
+        {
+            string connStr = "Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+            //string connStr = "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+
+            var sql = @"
+                SELECT TOP (1000) 
+                    [Id],
+                    [IdDadosCadastrais],
+                    [Ano],
+                    [Mes],
+                    [ValorPago]
+                FROM [ASTEL].[dbo].[DadosFinanceiros]
+                WHERE IdDadosCadastrais = @IdDadosCadastrais
+                ORDER BY [Ano] DESC, [Mes] DESC";
+
+            var historico = new List<HistoricoPagamentoDTO>();
+
+            using var conn = new SqlConnection(connStr);
+            await conn.OpenAsync();
+
+            using var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.Add(new SqlParameter("@IdDadosCadastrais", idDadosCadastrais));
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                historico.Add(new HistoricoPagamentoDTO
+                {
+                    Id = Convert.ToInt64(reader["Id"]),
+                    IdDadosCadastrais = Convert.ToInt64(reader["IdDadosCadastrais"]),
+                    Ano = reader["Ano"] as int?,
+                    Mes = reader["Mes"] as int?,
+                    ValorPago = reader["ValorPago"] as double?
+                });
+            }
+
+            return historico;
         }
 
     }
