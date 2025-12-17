@@ -12,6 +12,7 @@ namespace ASTEL.Api.Data
         public DbSet<DadosFinanceirosGridDTO> DadosFinanceirosGridDTO { get; set; }
         public DbSet<DadosCadastrais> DadosCadastrais { get; set; }
         public DbSet<DadosFinanceiros> DadosFinanceiros { get; set; }
+        public DbSet<Importacao> Importacoes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -26,6 +27,9 @@ namespace ASTEL.Api.Data
                 .WithMany(dc => dc.DadosFinanceiros)
                 .HasForeignKey(df => df.IdDadosCadastrais)
                 .OnDelete(DeleteBehavior.Cascade);
+            
+            modelBuilder.Entity<Importacao>()
+                .HasKey(i => i.Id);
             
             modelBuilder.Entity<DadosFinanceirosGridDTO>().HasNoKey();
 

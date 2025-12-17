@@ -1,4 +1,7 @@
-﻿using Microsoft.Data.SqlClient;
+﻿using ASTEL.Api.Data;
+using ASTEL.Api.Models;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.Globalization;
 using System.Text;
@@ -9,14 +12,17 @@ namespace ASTEL.Api.Services
     public class ImportFinanceiroService
     {
         private readonly string _connectionString;
+        private readonly AppDbContext _context;
 
-        public ImportFinanceiroService(IConfiguration configuration)
+        public ImportFinanceiroService(IConfiguration configuration, AppDbContext context)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection")
                 ?? "Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
 
             //_connectionString = configuration.GetConnectionString("DefaultConnection")
             //    ?? "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+            
+            _context = context;
         }
 
         public async Task<byte[]> ExportCsvAsync()
@@ -97,6 +103,10 @@ namespace ASTEL.Api.Services
                 return "Nenhum registro válido encontrado no arquivo CSV.";
 
             await InserirOuAtualizarEmLoteAsync(dataTable);
+            
+            // Salva registro de importação
+            await SalvarImportacaoAsync(file.FileName);
+            
             return $"{dataTable.Rows.Count} registros de dados financeiros processados com sucesso!";
         }
 
@@ -430,6 +440,10 @@ namespace ASTEL.Api.Services
                 return "Nenhum registro válido encontrado no arquivo Excel.";
 
             await InserirOuAtualizarEmLoteAsync(dataTable);
+            
+            // Salva registro de importação
+            await SalvarImportacaoAsync(file.FileName);
+            
             return $"{dataTable.Rows.Count} registros de dados financeiros processados com sucesso!";
         }
 
@@ -591,7 +605,61 @@ namespace ASTEL.Api.Services
                 return "Nenhum registro válido encontrado no arquivo Excel.";
 
             await InserirOuAtualizarEmLoteSistelAsync(dataTable);
+            
+            // Salva registro de importação
+            await SalvarImportacaoAsync(file.FileName);
+            
             return $"{dataTable.Rows.Count} registros de dados financeiros processados com sucesso!";
+        }
+
+        private async Task SalvarImportacaoAsync(string nomeArquivo)
+        {
+            try
+            {
+                // Gera ID único baseado em timestamp
+                long id = long.Parse(DateTime.Now.ToString("yyyyMMddHHmmss"));
+                
+                var importacao = new Importacao
+                {
+                    Id = id,
+                    Arquivo = nomeArquivo,
+                    ImportadoEm = DateTime.Now
+                };
+
+                _context.Importacoes.Add(importacao);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                // Log do erro mas não interrompe o processo de importação
+                Console.WriteLine($"⚠️ Erro ao salvar registro de importação: {ex.Message}");
+            }
+        }
+
+        public async Task<List<Importacao>> GetImportacoesAsync(string? nomeArquivo = null, DateTime? dataInicio = null, DateTime? dataFim = null)
+        {
+            var query = _context.Importacoes.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(nomeArquivo))
+            {
+                query = query.Where(i => i.Arquivo.Contains(nomeArquivo));
+            }
+
+            if (dataInicio.HasValue)
+            {
+                query = query.Where(i => i.ImportadoEm >= dataInicio.Value);
+            }
+
+            if (dataFim.HasValue)
+            {
+                // Adiciona 1 dia e subtrai 1 segundo para incluir todo o dia
+                var dataFimAjustada = dataFim.Value.Date.AddDays(1).AddSeconds(-1);
+                query = query.Where(i => i.ImportadoEm <= dataFimAjustada);
+            }
+
+            return await query
+                .OrderByDescending(i => i.ImportadoEm)
+                .ToListAsync();
         }
 
         private async Task InserirOuAtualizarEmLoteSistelAsync(DataTable dataTable)

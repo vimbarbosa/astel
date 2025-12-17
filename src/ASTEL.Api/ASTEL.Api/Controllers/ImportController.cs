@@ -1,4 +1,6 @@
-﻿using ASTEL.Api.Services;
+﻿using ASTEL.Api.DTOs;
+using ASTEL.Api.Models;
+using ASTEL.Api.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.IO;
@@ -80,6 +82,32 @@ namespace ASTEL.Api.Controllers
 
             var result = await _financeiroService.ImportSistelExcelAsync(file);
             return Ok(new { message = result });
+        }
+
+        /// <summary>
+        /// Retorna lista de arquivos importados com filtros opcionais
+        /// </summary>
+        /// <param name="nomeArquivo">Filtro por nome do arquivo (busca parcial)</param>
+        /// <param name="dataInicio">Data inicial para filtrar importações</param>
+        /// <param name="dataFim">Data final para filtrar importações</param>
+        /// <returns>Lista de importações filtradas</returns>
+        [HttpGet("importacoes")]
+        [ProducesResponseType(typeof(List<ImportacaoDTO>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<ImportacaoDTO>>> GetImportacoes(
+            [FromQuery] string? nomeArquivo = null,
+            [FromQuery] DateTime? dataInicio = null,
+            [FromQuery] DateTime? dataFim = null)
+        {
+            var importacoes = await _financeiroService.GetImportacoesAsync(nomeArquivo, dataInicio, dataFim);
+            
+            var dtos = importacoes.Select(i => new ImportacaoDTO
+            {
+                Id = i.Id,
+                Arquivo = i.Arquivo,
+                ImportadoEm = i.ImportadoEm
+            }).ToList();
+
+            return Ok(dtos);
         }
     }
 }
