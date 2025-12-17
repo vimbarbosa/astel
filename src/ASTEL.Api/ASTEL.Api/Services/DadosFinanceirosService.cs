@@ -685,5 +685,66 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
             return historico;
         }
 
+        public async Task<List<HistoricoPagamentoDTO>> GetDadosFinanceirosPorCadastroAsync(
+            long idDadosCadastrais, 
+            DateTime? dataInicio = null, 
+            DateTime? dataFim = null)
+        {
+            string connStr = "Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+            //string connStr = "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+
+            var sql = @"
+                SELECT 
+                    [Id],
+                    [IdDadosCadastrais],
+                    [Ano],
+                    [Mes],
+                    [ValorPago]
+                FROM [ASTEL].[dbo].[DadosFinanceiros]
+                WHERE IdDadosCadastrais = @IdDadosCadastrais";
+
+            var parameters = new List<SqlParameter>
+            {
+                new SqlParameter("@IdDadosCadastrais", idDadosCadastrais)
+            };
+
+            if (dataInicio.HasValue)
+            {
+                sql += " AND DATEFROMPARTS([Ano], [Mes], 1) >= @DataInicio";
+                parameters.Add(new SqlParameter("@DataInicio", dataInicio.Value));
+            }
+
+            if (dataFim.HasValue)
+            {
+                sql += " AND DATEFROMPARTS([Ano], [Mes], 1) <= @DataFim";
+                parameters.Add(new SqlParameter("@DataFim", dataFim.Value));
+            }
+
+            sql += " ORDER BY [Ano] DESC, [Mes] DESC";
+
+            var registros = new List<HistoricoPagamentoDTO>();
+
+            using var conn = new SqlConnection(connStr);
+            await conn.OpenAsync();
+
+            using var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.AddRange(parameters.ToArray());
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                registros.Add(new HistoricoPagamentoDTO
+                {
+                    Id = Convert.ToInt64(reader["Id"]),
+                    IdDadosCadastrais = Convert.ToInt64(reader["IdDadosCadastrais"]),
+                    Ano = reader["Ano"] as int?,
+                    Mes = reader["Mes"] as int?,
+                    ValorPago = reader["ValorPago"] as double?
+                });
+            }
+
+            return registros;
+        }
+
     }
 }

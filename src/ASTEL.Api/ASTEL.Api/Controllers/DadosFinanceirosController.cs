@@ -190,5 +190,19 @@ namespace ASTEL.Api.Controllers
             var historico = await _service.GetHistoricoPagamentoPorUsuarioAsync(idDadosCadastrais);
             return Ok(historico);
         }
+
+        [HttpGet("por-cadastro/{idDadosCadastrais}")]
+        public async Task<ActionResult<IEnumerable<HistoricoPagamentoDTO>>> GetDadosFinanceirosPorCadastro(
+            long idDadosCadastrais,
+            [FromQuery] DateTime? dataInicio = null,
+            [FromQuery] DateTime? dataFim = null)
+        {
+            var registros = await _service.GetDadosFinanceirosPorCadastroAsync(
+                idDadosCadastrais, 
+                dataInicio, 
+                dataFim);
+            
+            return Ok(registros);
+        }
     }
 }
