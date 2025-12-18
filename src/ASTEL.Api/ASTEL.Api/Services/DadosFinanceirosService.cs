@@ -686,41 +686,70 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
         }
 
         public async Task<List<HistoricoPagamentoDTO>> GetDadosFinanceirosPorCadastroAsync(
-            long idDadosCadastrais, 
+            long? idDadosCadastrais = null, 
             DateTime? dataInicio = null, 
             DateTime? dataFim = null)
         {
             string connStr = "Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
             //string connStr = "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
 
-            var sql = @"
-                SELECT 
-                    [Id],
-                    [IdDadosCadastrais],
-                    [Ano],
-                    [Mes],
-                    [ValorPago]
-                FROM [ASTEL].[dbo].[DadosFinanceiros]
-                WHERE IdDadosCadastrais = @IdDadosCadastrais";
-
-            var parameters = new List<SqlParameter>
+            var sql = "";
+            var parameters = new List<SqlParameter>();
+            var whereConditions = new List<string>();
+            
+            // Se todos os parâmetros forem nulos, retorna os últimos 100 registros da base
+            if (!idDadosCadastrais.HasValue && !dataInicio.HasValue && !dataFim.HasValue)
             {
-                new SqlParameter("@IdDadosCadastrais", idDadosCadastrais)
-            };
-
-            if (dataInicio.HasValue)
-            {
-                sql += " AND DATEFROMPARTS([Ano], [Mes], 1) >= @DataInicio";
-                parameters.Add(new SqlParameter("@DataInicio", dataInicio.Value));
+                sql = @"
+                    SELECT TOP (100)
+                        [Id],
+                        [IdDadosCadastrais],
+                        [Ano],
+                        [Mes],
+                        [ValorPago]
+                    FROM [ASTEL].[dbo].[DadosFinanceiros]
+                    ORDER BY [Ano] DESC, [Mes] DESC";
             }
-
-            if (dataFim.HasValue)
+            else
             {
-                sql += " AND DATEFROMPARTS([Ano], [Mes], 1) <= @DataFim";
-                parameters.Add(new SqlParameter("@DataFim", dataFim.Value));
-            }
+                sql = @"
+                    SELECT 
+                        [Id],
+                        [IdDadosCadastrais],
+                        [Ano],
+                        [Mes],
+                        [ValorPago]
+                    FROM [ASTEL].[dbo].[DadosFinanceiros]";
 
-            sql += " ORDER BY [Ano] DESC, [Mes] DESC";
+                // Filtro por IdDadosCadastrais
+                if (idDadosCadastrais.HasValue)
+                {
+                    whereConditions.Add("IdDadosCadastrais = @IdDadosCadastrais");
+                    parameters.Add(new SqlParameter("@IdDadosCadastrais", idDadosCadastrais.Value));
+                }
+
+                // Filtros de data
+                if (dataInicio.HasValue)
+                {
+                    whereConditions.Add("DATEFROMPARTS([Ano], [Mes], 1) >= @DataInicio");
+                    parameters.Add(new SqlParameter("@DataInicio", dataInicio.Value));
+                }
+
+                if (dataFim.HasValue)
+                {
+                    whereConditions.Add("DATEFROMPARTS([Ano], [Mes], 1) <= @DataFim");
+                    parameters.Add(new SqlParameter("@DataFim", dataFim.Value));
+                }
+
+                // Adiciona WHERE se houver condições
+                if (whereConditions.Count > 0)
+                {
+                    sql += " WHERE " + string.Join(" AND ", whereConditions);
+                }
+
+                // Adiciona ORDER BY
+                sql += " ORDER BY [Ano] DESC, [Mes] DESC";
+            }
 
             var registros = new List<HistoricoPagamentoDTO>();
 

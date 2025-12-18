@@ -191,9 +191,9 @@ namespace ASTEL.Api.Controllers
             return Ok(historico);
         }
 
-        [HttpGet("por-cadastro/{idDadosCadastrais}")]
+        [HttpGet("por-cadastro")]
         public async Task<ActionResult<IEnumerable<HistoricoPagamentoDTO>>> GetDadosFinanceirosPorCadastro(
-            long idDadosCadastrais,
+            [FromQuery] long? idDadosCadastrais = null,
             [FromQuery] DateTime? dataInicio = null,
             [FromQuery] DateTime? dataFim = null)
         {
