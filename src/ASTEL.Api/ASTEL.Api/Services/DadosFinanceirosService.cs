@@ -701,43 +701,47 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
             if (!idDadosCadastrais.HasValue && !dataInicio.HasValue && !dataFim.HasValue)
             {
                 sql = @"
-                    SELECT TOP (100)
-                        [Id],
-                        [IdDadosCadastrais],
-                        [Ano],
-                        [Mes],
-                        [ValorPago]
-                    FROM [ASTEL].[dbo].[DadosFinanceiros]
-                    ORDER BY [Ano] DESC, [Mes] DESC";
+                    SELECT TOP (1000)
+                        df.[Id],
+                        df.[IdDadosCadastrais],
+                        c.[Nome],
+                        df.[Ano],
+                        df.[Mes],
+                        df.[ValorPago]
+                    FROM [ASTEL].[dbo].[DadosFinanceiros] df
+                    LEFT JOIN [ASTEL].[dbo].[DadosCadastrais] c ON df.IdDadosCadastrais = c.Id
+                    ORDER BY df.[Ano] DESC, df.[Mes] DESC";
             }
             else
             {
                 sql = @"
                     SELECT 
-                        [Id],
-                        [IdDadosCadastrais],
-                        [Ano],
-                        [Mes],
-                        [ValorPago]
-                    FROM [ASTEL].[dbo].[DadosFinanceiros]";
+                        df.[Id],
+                        df.[IdDadosCadastrais],
+                        c.[Nome],
+                        df.[Ano],
+                        df.[Mes],
+                        df.[ValorPago]
+                    FROM [ASTEL].[dbo].[DadosFinanceiros] df
+                    LEFT JOIN [ASTEL].[dbo].[DadosCadastrais] c ON df.IdDadosCadastrais = c.Id";
 
                 // Filtro por IdDadosCadastrais
                 if (idDadosCadastrais.HasValue)
                 {
-                    whereConditions.Add("IdDadosCadastrais = @IdDadosCadastrais");
+                    whereConditions.Add("df.IdDadosCadastrais = @IdDadosCadastrais");
                     parameters.Add(new SqlParameter("@IdDadosCadastrais", idDadosCadastrais.Value));
                 }
 
                 // Filtros de data
                 if (dataInicio.HasValue)
                 {
-                    whereConditions.Add("DATEFROMPARTS([Ano], [Mes], 1) >= @DataInicio");
+                    whereConditions.Add("DATEFROMPARTS(df.[Ano], df.[Mes], 1) >= @DataInicio");
                     parameters.Add(new SqlParameter("@DataInicio", dataInicio.Value));
                 }
 
                 if (dataFim.HasValue)
                 {
-                    whereConditions.Add("DATEFROMPARTS([Ano], [Mes], 1) <= @DataFim");
+                    whereConditions.Add("DATEFROMPARTS(df.[Ano], df.[Mes], 1) <= @DataFim");
                     parameters.Add(new SqlParameter("@DataFim", dataFim.Value));
                 }
 
@@ -748,7 +752,7 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
                 }
 
                 // Adiciona ORDER BY
-                sql += " ORDER BY [Ano] DESC, [Mes] DESC";
+                sql += " ORDER BY df.[Ano] DESC, df.[Mes] DESC";
             }
 
             var registros = new List<HistoricoPagamentoDTO>();
@@ -766,6 +770,7 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
                 {
                     Id = Convert.ToInt64(reader["Id"]),
                     IdDadosCadastrais = Convert.ToInt64(reader["IdDadosCadastrais"]),
+                    Nome = reader["Nome"] as string,
                     Ano = reader["Ano"] as int?,
                     Mes = reader["Mes"] as int?,
                     ValorPago = reader["ValorPago"] as double?
