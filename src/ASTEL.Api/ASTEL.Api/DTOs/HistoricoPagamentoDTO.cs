@@ -8,6 +8,7 @@ namespace ASTEL.Api.DTOs
         public int? Ano { get; set; }
         public int? Mes { get; set; }
         public double? ValorPago { get; set; }
+        public DateTime? Data_Pagamento { get; set; }
     }
 }
 

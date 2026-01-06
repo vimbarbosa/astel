@@ -113,7 +113,10 @@ namespace ASTEL.Api.Controllers
         public IActionResult Update(long id, [FromBody] DadosFinanceiros df)
         {
             df.Id = id;
-            _service.Update(df);
+            
+            if (!_service.Update(df))
+                return NotFound(new { message = "Registro não encontrado." });
+
             return NoContent();
         }
 

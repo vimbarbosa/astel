@@ -145,6 +145,7 @@ namespace ASTEL.Api.Services
         f.Ano,
         f.Mes,
         f.ValorPago,
+        f.Data_Pagamento,
 {inadimplenteLogic},
         ROW_NUMBER() OVER (PARTITION BY c.Id ORDER BY 
             CASE WHEN f.Ano IS NULL THEN 0 ELSE 1 END DESC,
@@ -264,6 +265,7 @@ Base AS (
         Ano,
         Mes,
         ValorPago,
+        Data_Pagamento,
         Inadimplente
     FROM BaseCompleta
     WHERE RowNum = 1
@@ -365,6 +367,7 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
                     Ano = reader["Ano"] as int?,
                     Mes = reader["Mes"] as int?,
                     ValorPago = reader["ValorPago"] as double?,
+                    Data_Pagamento = reader["Data_Pagamento"] as DateTime?,
                     Inadimplente = Convert.ToBoolean(reader["Inadimplente"]),
                     Logradouro = reader["Logradouro"]?.ToString(),
                     CelSkype = reader["CelSkype"]?.ToString(),
@@ -441,13 +444,25 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
             _context.SaveChanges();
         }
 
-        public void Update(DadosFinanceiros df)
+        public bool Update(DadosFinanceiros df)
         {
             df.Mes = Convert.ToInt32(df.Mes);
             df.Ano = Convert.ToInt32(df.Ano);
 
-            _context.DadosFinanceiros.Update(df);
+            // Verifica se o registro existe antes de atualizar
+            var existente = _context.DadosFinanceiros.Find(df.Id);
+            if (existente == null)
+                return false;
+
+            // Atualiza as propriedades do registro existente
+            existente.IdDadosCadastrais = df.IdDadosCadastrais;
+            existente.Ano = df.Ano;
+            existente.Mes = df.Mes;
+            existente.ValorPago = df.ValorPago;
+            existente.Data_Pagamento = df.Data_Pagamento;
+
             _context.SaveChanges();
+            return true;
         }
 
         public bool Delete(long id)
@@ -481,7 +496,7 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
         {
             var sb = new System.Text.StringBuilder();
 
-            sb.AppendLine("Id,IdCadastro,MatriculaSistel,MatriculaAstel,Nome,CPF,RG,Logradouro,Numero,Complemento,Bairro,Cidade,Estado,TipoEndereco,Correspondencia,CEP,Telefone,CelSkype,Email,Situacao,EstadoCivil,Ativo,FormaPagamento,Ano,Mes,ValorPago,Inadimplente");
+            sb.AppendLine("Id,IdCadastro,MatriculaSistel,MatriculaAstel,Nome,CPF,RG,Logradouro,Numero,Complemento,Bairro,Cidade,Estado,TipoEndereco,Correspondencia,CEP,Telefone,CelSkype,Email,Situacao,EstadoCivil,Ativo,FormaPagamento,Ano,Mes,ValorPago,Data_Pagamento,Inadimplente");
 
             foreach (var d in dados)
             {
@@ -513,6 +528,7 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
             d.Ano?.ToString() ?? "",
             d.Mes?.ToString() ?? "",
             d.ValorPago?.ToString() ?? "",
+            d.Data_Pagamento?.ToString("yyyy-MM-dd HH:mm:ss") ?? "",
             d.Inadimplente ? "Sim" : "Não"
                 }));
             }
@@ -564,6 +580,7 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
         { "Ano", d => d.Ano },
         { "Mes", d => d.Mes },
         { "ValorPago", d => d.ValorPago },
+        { "Data_Pagamento", d => d.Data_Pagamento },
         { "Inadimplente", d => d.Inadimplente ? "Sim" : "Não" }
     };
 
@@ -656,7 +673,8 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
                     [IdDadosCadastrais],
                     [Ano],
                     [Mes],
-                    [ValorPago]
+                    [ValorPago],
+                    [Data_Pagamento]
                 FROM [ASTEL].[dbo].[DadosFinanceiros]
                 WHERE IdDadosCadastrais = @IdDadosCadastrais
                 ORDER BY [Ano] DESC, [Mes] DESC";
@@ -678,7 +696,8 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
                     IdDadosCadastrais = Convert.ToInt64(reader["IdDadosCadastrais"]),
                     Ano = reader["Ano"] as int?,
                     Mes = reader["Mes"] as int?,
-                    ValorPago = reader["ValorPago"] as double?
+                    ValorPago = reader["ValorPago"] as double?,
+                    Data_Pagamento = reader["Data_Pagamento"] as DateTime?
                 });
             }
 
@@ -707,7 +726,8 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
                         c.[Nome],
                         df.[Ano],
                         df.[Mes],
-                        df.[ValorPago]
+                        df.[ValorPago],
+                        df.[Data_Pagamento]
                     FROM [ASTEL].[dbo].[DadosFinanceiros] df
                     LEFT JOIN [ASTEL].[dbo].[DadosCadastrais] c ON df.IdDadosCadastrais = c.Id
                     ORDER BY df.[Ano] DESC, df.[Mes] DESC";
@@ -721,7 +741,8 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
                         c.[Nome],
                         df.[Ano],
                         df.[Mes],
-                        df.[ValorPago]
+                        df.[ValorPago],
+                        df.[Data_Pagamento]
                     FROM [ASTEL].[dbo].[DadosFinanceiros] df
                     LEFT JOIN [ASTEL].[dbo].[DadosCadastrais] c ON df.IdDadosCadastrais = c.Id";
 
@@ -773,7 +794,8 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
                     Nome = reader["Nome"] as string,
                     Ano = reader["Ano"] as int?,
                     Mes = reader["Mes"] as int?,
-                    ValorPago = reader["ValorPago"] as double?
+                    ValorPago = reader["ValorPago"] as double?,
+                    Data_Pagamento = reader["Data_Pagamento"] as DateTime?
                 });
             }
 

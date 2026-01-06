@@ -241,8 +241,8 @@ namespace ASTEL.Api.Services
                         UPDATE SET 
                             Target.ValorPago = Source.ValorPago
                     WHEN NOT MATCHED BY TARGET AND (Source.ValorPago IS NOT NULL AND Source.ValorPago <> 0) THEN
-                        INSERT (Id, IdDadosCadastrais, Ano, Mes, ValorPago)
-                        VALUES (Source.Id, Source.IdDadosCadastrais, Source.Ano, Source.Mes, Source.ValorPago);
+                        INSERT (Id, IdDadosCadastrais, Ano, Mes, ValorPago, Data_Pagamento)
+                        VALUES (Source.Id, Source.IdDadosCadastrais, Source.Ano, Source.Mes, Source.ValorPago, NULL);
     ";
 
             await using (var mergeCmd = new SqlCommand(mergeSql, connection))
@@ -717,8 +717,8 @@ namespace ASTEL.Api.Services
                         UPDATE SET 
                             Target.ValorPago = Source.ValorPago
                     WHEN NOT MATCHED BY TARGET AND (Source.ValorPago IS NOT NULL AND Source.ValorPago <> 0) THEN
-                        INSERT (Id, IdDadosCadastrais, Ano, Mes, ValorPago)
-                        VALUES (Source.Id, Source.IdDadosCadastrais, Source.Ano, Source.Mes, Source.ValorPago);
+                        INSERT (Id, IdDadosCadastrais, Ano, Mes, ValorPago, Data_Pagamento)
+                        VALUES (Source.Id, Source.IdDadosCadastrais, Source.Ano, Source.Mes, Source.ValorPago, NULL);
     ";
 
             await using (var mergeCmd = new SqlCommand(mergeSql, connection))

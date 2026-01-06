@@ -23,6 +23,9 @@ namespace ASTEL.Api.Models
         [Column("ValorPago")]
         public double? ValorPago { get; set; }
 
+        [Column("Data_Pagamento")]
+        public DateTime? Data_Pagamento { get; set; }
+
         [ForeignKey("IdDadosCadastrais")]
         public DadosCadastrais? DadosCadastrais { get; set; }
     }
