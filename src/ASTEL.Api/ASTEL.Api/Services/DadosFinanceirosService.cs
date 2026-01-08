@@ -80,15 +80,15 @@ namespace ASTEL.Api.Services
             }
             else
             {
-                // Se não houver filtro de data, considera o último mês (comportamento atual)
+                // Se não houver filtro de data, considera o último mês fechado
                 inadimplenteLogic = @"
         CASE 
             WHEN EXISTS (
                 SELECT 1 
                 FROM DadosFinanceiros fx
                 WHERE fx.IdDadosCadastrais = c.Id
-                  AND fx.Ano = YEAR(GETDATE())
-                  AND fx.Mes = MONTH(GETDATE())
+                  AND fx.Ano = YEAR(DATEADD(MONTH, -1, GETDATE()))
+                  AND fx.Mes = MONTH(DATEADD(MONTH, -1, GETDATE()))
                   AND fx.ValorPago IS NOT NULL
             ) THEN 0
             ELSE 1
