@@ -32,8 +32,7 @@ namespace ASTEL.Api.Services
                 string? formapagamento,
                 int pageNumber, int pageSize)
         {
-            string connStr = "Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
-            //string connStr = "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+            string connStr = "Server=astelsp1_Astel.sqlserver.dbaas.com.br;Database=astelsp1_Astel;User Id=astelsp1_Astel;Password=Astel@5691;TrustServerCertificate=True;";
 
             // ------------------------- CTE -------------------------
             // Constrói a lógica de inadimplência baseada nos filtros de data
@@ -664,8 +663,7 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
 
         public async Task<List<HistoricoPagamentoDTO>> GetHistoricoPagamentoPorUsuarioAsync(long idDadosCadastrais)
         {
-            string connStr = "Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
-            //string connStr = "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+            string connStr = "Server=astelsp1_Astel.sqlserver.dbaas.com.br;Database=astelsp1_Astel;User Id=astelsp1_Astel;Password=Astel@5691;TrustServerCertificate=True;";
 
             var sql = @"
                 SELECT TOP (1000) 
@@ -709,8 +707,7 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
             DateTime? dataInicio = null, 
             DateTime? dataFim = null)
         {
-            string connStr = "Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
-            //string connStr = "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+            string connStr = "Server=astelsp1_Astel.sqlserver.dbaas.com.br;Database=astelsp1_Astel;User Id=astelsp1_Astel;Password=Astel@5691;TrustServerCertificate=True;";
 
             var sql = "";
             var parameters = new List<SqlParameter>();

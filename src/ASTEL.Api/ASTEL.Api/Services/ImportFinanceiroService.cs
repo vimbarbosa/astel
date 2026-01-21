@@ -17,10 +17,7 @@ namespace ASTEL.Api.Services
         public ImportFinanceiroService(IConfiguration configuration, AppDbContext context)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection")
-                ?? "Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
-
-            //_connectionString = configuration.GetConnectionString("DefaultConnection")
-            //    ?? "Server=localhost,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;";
+                ?? "Server=astelsp1_Astel.sqlserver.dbaas.com.br;Database=astelsp1_Astel;User Id=astelsp1_Astel;Password=Astel@5691;TrustServerCertificate=True;";
             
             _context = context;
         }
