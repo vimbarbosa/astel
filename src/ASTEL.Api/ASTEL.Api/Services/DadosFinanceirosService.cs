@@ -673,7 +673,7 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
                     [Mes],
                     [ValorPago],
                     [Data_Pagamento]
-                FROM [ASTEL].[dbo].[DadosFinanceiros]
+                FROM [astelsp1_Astel].[dbo].[DadosFinanceiros]
                 WHERE IdDadosCadastrais = @IdDadosCadastrais
                 ORDER BY [Ano] DESC, [Mes] DESC";
 
@@ -725,8 +725,8 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
                         df.[Mes],
                         df.[ValorPago],
                         df.[Data_Pagamento]
-                    FROM [ASTEL].[dbo].[DadosFinanceiros] df
-                    LEFT JOIN [ASTEL].[dbo].[DadosCadastrais] c ON df.IdDadosCadastrais = c.Id
+                    FROM [astelsp1_Astel].[dbo].[DadosFinanceiros] df
+                    LEFT JOIN [astelsp1_Astel].[dbo].[DadosCadastrais] c ON df.IdDadosCadastrais = c.Id
                     ORDER BY df.[Ano] DESC, df.[Mes] DESC";
             }
             else
@@ -740,8 +740,8 @@ OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
                         df.[Mes],
                         df.[ValorPago],
                         df.[Data_Pagamento]
-                    FROM [ASTEL].[dbo].[DadosFinanceiros] df
-                    LEFT JOIN [ASTEL].[dbo].[DadosCadastrais] c ON df.IdDadosCadastrais = c.Id";
+                    FROM [astelsp1_Astel].[dbo].[DadosFinanceiros] df
+                    LEFT JOIN [astelsp1_Astel].[dbo].[DadosCadastrais] c ON df.IdDadosCadastrais = c.Id";
 
                 // Filtro por IdDadosCadastrais
                 if (idDadosCadastrais.HasValue)
