@@ -1,66 +1,16 @@
 version: '3.9'
 
 services:
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: sqlserver-2022
-    environment:
-      ACCEPT_EULA: "Y"
-      SA_PASSWORD: "stel@123"
-      MSSQL_PID: "Developer"
-    ports:
-      - "1433:1433"
-    volumes:
-      - mssql_data:/var/opt/mssql
-      - ./sql:/sql
-    healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $${SA_PASSWORD} -Q 'SELECT 1' || exit 1"]
-      interval: 10s
-      retries: 10
-      start_period: 90s
-      timeout: 5s 
-    restart: unless-stopped
-
-  sql_init:
-    image: mcr.microsoft.com/mssql-tools:latest
-    container_name: sql_init
-    depends_on:
-      sqlserver:
-        condition: service_started
-    entrypoint: ["/bin/bash", "-c"]
-    command: >
-      "
-      echo '⏳ Waiting for SQL Server to start...';
-      for i in {1..60}; do
-        /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P 'stel@123' -Q 'SELECT 1' &>/dev/null && break;
-        echo '  SQL Server not ready yet... waiting ($i)';
-        sleep 2;
-      done;
-
-      echo '🚀 Running initialization script /sql/tables.sql...';
-      /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P 'stel@123' -i /sql/tables.sql && echo '✅ Initialization complete';
-
-      echo 'SQL init finished, exiting...';
-      "
-    volumes:
-      - ./sql:/sql
-    restart: "no"
-
   api:
     build:
       context: .
       dockerfile: Dockerfile.api     # novo Dockerfile separado da API
     container_name: astel-api
-    depends_on:
-      - sqlserver
-      - sql_init
     ports:
       - "5000:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=ASTEL;User Id=sa;Password=stel@123;TrustServerCertificate=True;
+      - ConnectionStrings__DefaultConnection=Server=astelsp1_Astel.sqlserver.dbaas.com.br;Database=astelsp1_Astel;User Id=astelsp1_Astel;Password=Astel@5691;TrustServerCertificate=True;
     restart: unless-stopped
 
-volumes:
-  mssql_data:
