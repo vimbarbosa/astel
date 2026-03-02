@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ASTEL.Api.Models
@@ -114,5 +114,29 @@ namespace ASTEL.Api.Models
         [Column("FormaPagamento")]
         [MaxLength(255)]
         public string? FormaPagamento { get; set; }
+
+        //
+        // NOVOS CAMPOS DE DATAS (ALTER TABLE)
+        //
+
+        [Column("Data_Alteracao_Status")]
+        public DateTime? DataAlteracaoStatus { get; set; }
+
+        [Column("Data_Obto")]
+        public DateTime? DataObto { get; set; }
+
+        [Column("Data_Inadimplencia")]
+        public DateTime? DataInadimplencia { get; set; }
+
+        [Column("Data_Pedido_Desligamento")]
+        public DateTime? DataPedidoDesligamento { get; set; }
+
+        //
+        // NOVO CAMPO TIPO_VINCULO
+        //
+
+        [Column("TIPO_VINCULO")]
+        [MaxLength(255)]
+        public string? TipoVinculo { get; set; }
     }
 }

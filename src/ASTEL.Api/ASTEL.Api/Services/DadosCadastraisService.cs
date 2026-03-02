@@ -1,4 +1,4 @@
-﻿using ASTEL.Api.Data;
+using ASTEL.Api.Data;
 using ASTEL.Api.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,6 +30,8 @@ namespace ASTEL.Api.Services
         string? cpf,
         long? matriculaAstel,
         string? formapagamento,
+        string? cidade,
+        string? estado,
         bool? ativo,
         int pageNumber,
         int pageSize)
@@ -47,6 +49,12 @@ namespace ASTEL.Api.Services
 
             if (!string.IsNullOrWhiteSpace(formapagamento))
                 query = query.Where(x => x.FormaPagamento != null && x.FormaPagamento.Contains(formapagamento));
+
+            if (!string.IsNullOrWhiteSpace(cidade))
+                query = query.Where(x => x.Cidade != null && x.Cidade.Contains(cidade));
+
+            if (!string.IsNullOrWhiteSpace(estado))
+                query = query.Where(x => x.Estado != null && x.Estado.Contains(estado));
 
             if (ativo.HasValue)
                 query = query.Where(x => x.Ativo == ativo.Value);
@@ -112,11 +120,20 @@ namespace ASTEL.Api.Services
         }
 
         // AUTocomplete - Busca nomes por parte do nome
-        public async Task<List<(long Id, string Nome, long? MatriculaAstel)>> SearchNomesAsync(string? termo, int limit = 10)
+        public async Task<List<(long Id, string Nome, long? MatriculaAstel)>> SearchNomesAsync(
+            string? termo,
+            bool? ativo,
+            int limit = 10)
         {
             var query = _context.DadosCadastrais
                 .AsNoTracking()
-                .Where(x => x.Ativo == true);
+                .AsQueryable();
+          
+
+            if(ativo != null)
+            {
+                query = query.Where(x => x.Ativo == ativo);
+            }
 
             if (!string.IsNullOrWhiteSpace(termo))
             {

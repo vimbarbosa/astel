@@ -1,4 +1,6 @@
-﻿namespace ASTEL.Api.DTOs
+using System;
+
+namespace ASTEL.Api.DTOs
 {
     public class DadosCadastraisDTO
     {
@@ -35,5 +37,20 @@
         public string? Email { get; set; }
         public string? CEP { get; set; }
         public string? FormaPagamento { get; set; }
+
+        //
+        // NOVOS CAMPOS DE DATAS (ALTER TABLE)
+        //
+
+        public DateTime? DataAlteracaoStatus { get; set; }
+        public DateTime? DataObto { get; set; }
+        public DateTime? DataInadimplencia { get; set; }
+        public DateTime? DataPedidoDesligamento { get; set; }
+
+        //
+        // NOVO CAMPO TIPO_VINCULO
+        //
+
+        public string? TipoVinculo { get; set; }
     }
 }

@@ -1,4 +1,4 @@
-﻿using ASTEL.Api.DTOs;
+using ASTEL.Api.DTOs;
 using ASTEL.Api.Models;
 using ASTEL.Api.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -23,6 +23,8 @@ namespace ASTEL.Api.Controllers
             string? cpf = null,
             long? matriculaAstel = null,
             string? formapagamento = null,
+            string? cidade = null,
+            string? estado = null,
             bool? ativo = null,
             int pageNumber = 1,
             int pageSize = 10)
@@ -35,6 +37,8 @@ namespace ASTEL.Api.Controllers
                 cpf,
                 matriculaAstel,
                 formapagamento,
+                cidade,
+                estado,
                 ativo,
                 pageNumber,
                 pageSize
@@ -71,7 +75,16 @@ namespace ASTEL.Api.Controllers
                 Bairro = d.Bairro,
                 Email = d.Email,
                 CEP = d.CEP,
-                FormaPagamento = d.FormaPagamento
+                FormaPagamento = d.FormaPagamento,
+
+                // NOVOS CAMPOS DE DATA
+                DataAlteracaoStatus = d.DataAlteracaoStatus,
+                DataObto = d.DataObto,
+                DataInadimplencia = d.DataInadimplencia,
+                DataPedidoDesligamento = d.DataPedidoDesligamento,
+
+                // NOVO CAMPO TIPO_VINCULO
+                TipoVinculo = d.TipoVinculo
             });
 
             Response.Headers["X-Total-Count"] = totalCount.ToString();
@@ -79,7 +92,12 @@ namespace ASTEL.Api.Controllers
             Response.Headers["X-Current-Page"] = pageNumber.ToString();
             Response.Headers["X-Page-Size"] = pageSize.ToString();
 
-            return Ok(dtos);
+            // Retorna também totalPages no corpo, semelhante ao DadosFinanceirosController
+            return Ok(new
+            {
+                totalPages,
+                items = dtos
+            });
         }
 
         // GET BY ID
@@ -118,7 +136,14 @@ namespace ASTEL.Api.Controllers
                 Bairro = d.Bairro,
                 Email = d.Email,
                 CEP = d.CEP,
-                FormaPagamento = d.FormaPagamento
+                FormaPagamento = d.FormaPagamento,
+
+                DataAlteracaoStatus = d.DataAlteracaoStatus,
+                DataObto = d.DataObto,
+                DataInadimplencia = d.DataInadimplencia,
+                DataPedidoDesligamento = d.DataPedidoDesligamento,
+
+                TipoVinculo = d.TipoVinculo
             };
 
             return Ok(dto);
@@ -142,7 +167,7 @@ namespace ASTEL.Api.Controllers
                 NomeEsposa = dto.NomeEsposa,
                 CPF = dto.CPF,
                 RG = dto.RG,
-                Ativo = dto.Ativo,
+                Ativo = string.Equals(dto.Situacao, "ATIVO", StringComparison.OrdinalIgnoreCase),
                 DescontoFolha = dto.DescontoFolha,
 
                 Logradouro = dto.Logradouro,
@@ -156,7 +181,14 @@ namespace ASTEL.Api.Controllers
                 Bairro = dto.Bairro,
                 Email = dto.Email,
                 CEP = dto.CEP,
-                FormaPagamento = dto.FormaPagamento
+                FormaPagamento = dto.FormaPagamento,
+
+                DataAlteracaoStatus = dto.DataAlteracaoStatus,
+                DataObto = dto.DataObto,
+                DataInadimplencia = dto.DataInadimplencia,
+                DataPedidoDesligamento = dto.DataPedidoDesligamento,
+
+                TipoVinculo = dto.TipoVinculo
             };
 
             await _service.AddAsync(model);
@@ -188,7 +220,7 @@ namespace ASTEL.Api.Controllers
             existente.NomeEsposa = dto.NomeEsposa;
             existente.CPF = dto.CPF;
             existente.RG = dto.RG;
-            existente.Ativo = dto.Ativo;
+            existente.Ativo = string.Equals(dto.Situacao, "ATIVO", StringComparison.OrdinalIgnoreCase);
             existente.DescontoFolha = dto.DescontoFolha;
 
             // NOVOS CAMPOS
@@ -204,6 +236,13 @@ namespace ASTEL.Api.Controllers
             existente.Email = dto.Email;
             existente.CEP = dto.CEP;
             existente.FormaPagamento = dto.FormaPagamento;
+
+            existente.DataAlteracaoStatus = dto.DataAlteracaoStatus;
+            existente.DataObto = dto.DataObto;
+            existente.DataInadimplencia = dto.DataInadimplencia;
+            existente.DataPedidoDesligamento = dto.DataPedidoDesligamento;
+
+            existente.TipoVinculo = dto.TipoVinculo;
 
             await _service.UpdateAsync(existente);
 
@@ -225,12 +264,13 @@ namespace ASTEL.Api.Controllers
         [HttpGet("autocomplete")]
         public async Task<ActionResult<IEnumerable<AutocompleteNomeDTO>>> AutocompleteNomes(
             [FromQuery] string? termo = null,
+            [FromQuery] bool? ativo = null,
             [FromQuery] int limit = 10)
         {
             if (limit <= 0 || limit > 50)
                 limit = 10; // Limita entre 1 e 50 resultados
 
-            var resultados = await _service.SearchNomesAsync(termo, limit);
+            var resultados = await _service.SearchNomesAsync(termo, ativo, limit);
 
             var dtos = resultados.Select(r => new AutocompleteNomeDTO
             {
